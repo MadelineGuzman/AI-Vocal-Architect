@@ -1672,14 +1672,36 @@ function scaleProfile(profile, intensity) {
 
     function tryAnotherVibe(mode) {
       const adjustments = {
-        aggressive: " aggressive, punchier, tighter compression, more edge",
-        softer: " softer, smoother, gentler compression, cleaner tone",
-        space: " wider, more ambience, more delay, more reverb"
+        aggressive: " more aggressive, punchier, more compression",
+        softer: " softer, smoother, less compression",
+        space: " more reverb, more delay, wider stereo"
       };
 
       styleInput.value = `${styleInput.value.trim() || "modern vocal"}${adjustments[mode] || ""}`.trim();
       styleInput.dispatchEvent(new Event("input", { bubbles: true }));
       generateChain();
+    }
+
+    function formatStyleDirection(styleText) {
+      const parts = styleText
+        .toLowerCase()
+        .split(",")
+        .map(part => part.trim())
+        .filter(Boolean);
+
+      const uniqueParts = [...new Set(parts)];
+      const primary = uniqueParts.slice(0, 3).join(", ");
+      const compressed = primary
+        .replace(/\bmore\s+/g, "")
+        .replace(/\bless\s+/g, "lighter ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const sentence = compressed
+        ? `${compressed.charAt(0).toUpperCase()}${compressed.slice(1)} vocal with focused production.`
+        : "Modern vocal with focused production.";
+
+      return sentence.replace(/\s+,/g, ",").replace(/,+/g, ",").replace(/\s+/g, " ").trim();
     }
 
     function generateChain() {
@@ -1700,7 +1722,7 @@ function scaleProfile(profile, intensity) {
         `<strong>Space</strong>: ${spaceMode}`,
         `<strong>Drive</strong>: ${intensity}/10`
       ].join("<br>");
-      metaStyle.textContent = `Style: ${style}`;
+      metaStyle.textContent = `Style: ${formatStyleDirection(style)}`;
       metaDaw.textContent = `DAW: ${daw}`;
       metaIntensity.textContent = `Intensity: ${intensity}/10`;
 
