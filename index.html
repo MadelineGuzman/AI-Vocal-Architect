@@ -257,6 +257,9 @@
     }
 
     .preset-btn {
+      display: grid;
+      gap: 4px;
+      text-align: left;
       padding: 12px 14px;
       border: 1px solid rgba(141, 164, 255, 0.18);
       border-radius: 16px;
@@ -279,6 +282,19 @@
 
     .preset-btn:active {
       transform: scale(0.99);
+    }
+
+    .preset-title {
+      display: block;
+    }
+
+    .preset-note {
+      display: block;
+      color: #afbee8;
+      font-size: 0.76rem;
+      font-weight: 500;
+      line-height: 1.45;
+      opacity: 0.9;
     }
 
     .input-shell {
@@ -582,6 +598,37 @@ select option {
       font-size: 0.82rem;
     }
 
+    .result-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .utility-btn {
+      padding: 10px 14px;
+      border: 1px solid rgba(141, 164, 255, 0.18);
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(90,216,255,0.12), rgba(143,98,255,0.16));
+      color: #eef4ff;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 10px 20px rgba(0, 0, 0, 0.16);
+      transition: transform 180ms var(--ease), border-color 180ms var(--ease), box-shadow 180ms var(--ease), background 180ms var(--ease);
+    }
+
+    .utility-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(141, 164, 255, 0.3);
+      box-shadow: 0 0 18px rgba(90, 216, 255, 0.14), 0 12px 24px rgba(0, 0, 0, 0.2);
+    }
+
+    .utility-btn[hidden] {
+      display: none;
+    }
+
     .display-well {
       position: relative;
       flex: 1;
@@ -807,6 +854,49 @@ select option {
       margin-top: 6px;
     }
 
+    .eq-visualizer {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      align-items: end;
+      min-height: 96px;
+      margin: 6px 0 14px;
+      padding: 16px 14px 12px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(8, 12, 27, 0.88), rgba(14, 19, 39, 0.82));
+      border: 1px solid rgba(141, 164, 255, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .eq-band {
+      display: grid;
+      justify-items: center;
+      gap: 8px;
+    }
+
+    .eq-bar {
+      width: 100%;
+      max-width: 72px;
+      min-height: 16px;
+      border-radius: 999px 999px 12px 12px;
+      background: linear-gradient(180deg, rgba(90,216,255,0.9), rgba(108,124,255,0.72), rgba(227,93,255,0.6));
+      box-shadow: 0 0 16px rgba(90, 216, 255, 0.18), 0 0 22px rgba(143, 98, 255, 0.12);
+      transition: height 240ms var(--ease), transform 240ms var(--ease), opacity 240ms var(--ease);
+      transform-origin: bottom center;
+    }
+
+    .eq-band.cut .eq-bar {
+      background: linear-gradient(180deg, rgba(90,216,255,0.45), rgba(108,124,255,0.38));
+      opacity: 0.82;
+    }
+
+    .eq-band-label {
+      font-size: 0.72rem;
+      color: #b8c6ff;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
     .setting-line {
       display: flex;
       align-items: flex-start;
@@ -845,6 +935,29 @@ select option {
       text-align: center;
       text-shadow: 0 0 16px rgba(90, 216, 255, 0.08), 0 0 22px rgba(143, 98, 255, 0.06);
       opacity: 0.9;
+    }
+
+    .vibe-actions {
+      margin-top: 20px;
+      padding: 16px 18px;
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(13, 18, 39, 0.72), rgba(9, 13, 29, 0.82));
+      border: 1px solid rgba(141, 164, 255, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .vibe-actions-title {
+      margin-bottom: 12px;
+      color: #dce7ff;
+      font-size: 0.86rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .vibe-actions-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
     }
 
     @media (max-width: 980px) {
@@ -894,11 +1007,11 @@ select option {
               <span class="field-hint">Quick starting points</span>
             </div>
             <div class="preset-grid" id="presetGrid">
-              <button class="preset-btn" type="button" onclick="applyPreset('clean vocal, smooth, controlled dynamics', 4)">Clean &amp; Natural</button>
-              <button class="preset-btn" type="button" onclick="applyPreset('aggressive rap, punchy, upfront', 8)">Aggressive Rap</button>
-              <button class="preset-btn" type="button" onclick="applyPreset('chopped and screwed, slow, pitch shifted', 6)">Chopped &amp; Screwed</button>
-              <button class="preset-btn" type="button" onclick="applyPreset('melodic rap with autotune, modern, atmospheric', 7)">Autotune Vibe</button>
-              <button class="preset-btn" type="button" onclick="applyPreset('smooth R&amp;B vocal, warm, controlled dynamics, soft compression, airy highs', 5)">Smooth R&amp;B</button>
+              <button class="preset-btn" type="button" onclick="applyPreset('clean vocal, smooth, controlled dynamics', 4)"><span class="preset-title">Clean &amp; Natural</span><span class="preset-note">Transparent, studio-ready clarity</span></button>
+              <button class="preset-btn" type="button" onclick="applyPreset('aggressive rap, punchy, upfront', 8)"><span class="preset-title">Aggressive Rap</span><span class="preset-note">Punchy, upfront, controlled energy</span></button>
+              <button class="preset-btn" type="button" onclick="applyPreset('chopped and screwed, slow, pitch shifted', 6)"><span class="preset-title">Chopped &amp; Screwed</span><span class="preset-note">Slow, warped, textured vibe</span></button>
+              <button class="preset-btn" type="button" onclick="applyPreset('melodic rap with autotune, modern, atmospheric', 7)"><span class="preset-title">Autotune Vibe</span><span class="preset-note">Modern, melodic, tuned character</span></button>
+              <button class="preset-btn" type="button" onclick="applyPreset('smooth R&amp;B vocal, warm, controlled dynamics, soft compression, airy highs', 5)"><span class="preset-title">Smooth R&amp;B</span><span class="preset-note">Warm, soft, intimate tone</span></button>
             </div>
           </div>
 
@@ -993,6 +1106,10 @@ select option {
           </div>
 
           <div class="result-content" id="resultContent">
+            <div class="result-actions">
+              <button class="utility-btn" id="copySettingsBtn" type="button" hidden>Copy Settings</button>
+            </div>
+
             <div class="vibe-box">
               <div class="vibe-label">Vibe Description</div>
               <div class="vibe-text" id="vibeText"></div>
@@ -1009,6 +1126,20 @@ select option {
               <div class="card">
                 <h3>EQ Section</h3>
                 <div class="plugin-name" id="eqPlugin"></div>
+                <div class="eq-visualizer" id="eqVisualizer">
+                  <div class="eq-band cut">
+                    <div class="eq-bar" id="eqLowBar"></div>
+                    <div class="eq-band-label">Low Cut</div>
+                  </div>
+                  <div class="eq-band cut">
+                    <div class="eq-bar" id="eqMidBar"></div>
+                    <div class="eq-band-label">Mid Dip</div>
+                  </div>
+                  <div class="eq-band">
+                    <div class="eq-bar" id="eqHighBar"></div>
+                    <div class="eq-band-label">Air Boost</div>
+                  </div>
+                </div>
                 <div class="settings" id="eqSettings"></div>
                 <div class="learn" id="eqLearn" hidden></div>
               </div>
@@ -1025,6 +1156,15 @@ select option {
                 <div class="plugin-name" id="fxPlugin"></div>
                 <div class="settings" id="fxSettings"></div>
                 <div class="learn" id="fxLearn" hidden></div>
+              </div>
+            </div>
+
+            <div class="vibe-actions">
+              <div class="vibe-actions-title">Try another vibe</div>
+              <div class="vibe-actions-grid">
+                <button class="utility-btn" id="moreAggressiveBtn" type="button">More Aggressive</button>
+                <button class="utility-btn" id="softerBtn" type="button">Softer</button>
+                <button class="utility-btn" id="moreSpaceBtn" type="button">More Space</button>
               </div>
             </div>
           </div>
@@ -1049,6 +1189,7 @@ select option {
     const emptyState = document.getElementById("emptyState");
     const resultContent = document.getElementById("resultContent");
     const resultsBadge = document.getElementById("resultsBadge");
+    const copySettingsBtn = document.getElementById("copySettingsBtn");
     const vibeText = document.getElementById("vibeText");
     const resultHelper = document.getElementById("resultHelper");
     const metaStyle = document.getElementById("metaStyle");
@@ -1066,6 +1207,12 @@ select option {
     const miniProcessing = document.getElementById("miniProcessing");
     const miniSpace = document.getElementById("miniSpace");
     const miniTone = document.getElementById("miniTone");
+    const eqLowBar = document.getElementById("eqLowBar");
+    const eqMidBar = document.getElementById("eqMidBar");
+    const eqHighBar = document.getElementById("eqHighBar");
+    const moreAggressiveBtn = document.getElementById("moreAggressiveBtn");
+    const softerBtn = document.getElementById("softerBtn");
+    const moreSpaceBtn = document.getElementById("moreSpaceBtn");
 
 const vocalPresets = {
   cleanNatural: {
@@ -1471,6 +1618,70 @@ function scaleProfile(profile, intensity) {
         .join("");
     }
 
+    function updateEqVisualizer(eq) {
+      if (!eqLowBar || !eqMidBar || !eqHighBar) return;
+
+      const lowAmount = Math.min(88, Math.max(28, (eq.hpf - 40) * 0.6));
+      const midAmount = Math.min(84, Math.max(18, Math.abs(eq.moves[0].scaledGain) * 18));
+      const highAmount = Math.min(92, Math.max(24, Math.abs(eq.moves[2].scaledGain) * 16));
+
+      eqLowBar.style.height = `${lowAmount}px`;
+      eqMidBar.style.height = `${midAmount}px`;
+      eqHighBar.style.height = `${highAmount}px`;
+      eqHighBar.style.transform = highAmount > 68 ? "scaleY(1.06)" : "scaleY(1)";
+    }
+
+    function buildSettingsText() {
+      const sections = [
+        `Generated Chain`,
+        metaStyle.textContent,
+        metaDaw.textContent,
+        metaIntensity.textContent,
+        ``,
+        `EQ`,
+        eqPlugin.textContent,
+        ...Array.from(eqSettings.querySelectorAll(".setting-line")).map(line => line.textContent.replace(/\s+/g, " ").trim()),
+        ``,
+        `Compressor`,
+        compPlugin.textContent,
+        ...Array.from(compSettings.querySelectorAll(".setting-line")).map(line => line.textContent.replace(/\s+/g, " ").trim()),
+        ``,
+        `Reverb / FX`,
+        fxPlugin.textContent,
+        ...Array.from(fxSettings.querySelectorAll(".setting-line")).map(line => line.textContent.replace(/\s+/g, " ").trim())
+      ];
+
+      return sections.join("\n").trim();
+    }
+
+    async function copySettings() {
+      if (!navigator.clipboard) return;
+
+      const originalLabel = copySettingsBtn.textContent;
+      try {
+        await navigator.clipboard.writeText(buildSettingsText());
+        copySettingsBtn.textContent = "Copied!";
+      } catch (error) {
+        copySettingsBtn.textContent = "Copy Failed";
+      }
+
+      window.setTimeout(() => {
+        copySettingsBtn.textContent = originalLabel;
+      }, 1500);
+    }
+
+    function tryAnotherVibe(mode) {
+      const adjustments = {
+        aggressive: " aggressive, punchier, tighter compression, more edge",
+        softer: " softer, smoother, gentler compression, cleaner tone",
+        space: " wider, more ambience, more delay, more reverb"
+      };
+
+      styleInput.value = `${styleInput.value.trim() || "modern vocal"}${adjustments[mode] || ""}`.trim();
+      styleInput.dispatchEvent(new Event("input", { bubbles: true }));
+      generateChain();
+    }
+
     function generateChain() {
       const style = styleInput.value.trim() || "modern vocal";
       const daw = dawSelect.value;
@@ -1501,6 +1712,7 @@ function scaleProfile(profile, intensity) {
         { label: "Air", value: `${(scaled.eq.moves[2].freq / 1000).toFixed(1)} kHz, ${formatDb(scaled.eq.moves[2].scaledGain)}` },
         { label: "De-Esser", value: `${(scaled.eq.deEss.freq / 1000).toFixed(1)} kHz, ${scaled.eq.deEss.amount.toFixed(1)} dB` }
       ]);
+      updateEqVisualizer(scaled.eq);
 
       compPlugin.textContent = plugins.comp;
       renderSettingLines(compSettings, [
@@ -1531,6 +1743,7 @@ function scaleProfile(profile, intensity) {
 
       resultsBadge.textContent = `${profile.label} chain ready`;
       resultHelper.hidden = false;
+      copySettingsBtn.hidden = false;
       emptyState.style.display = "none";
       resultContent.classList.remove("show");
       void resultContent.offsetWidth;
@@ -1540,6 +1753,10 @@ function scaleProfile(profile, intensity) {
     intensityRange.addEventListener("input", updateIntensityLabel);
     styleInput.addEventListener("input", updateMiniDashboard);
     generateBtn.addEventListener("click", generateChain);
+    copySettingsBtn.addEventListener("click", copySettings);
+    moreAggressiveBtn.addEventListener("click", () => tryAnotherVibe("aggressive"));
+    softerBtn.addEventListener("click", () => tryAnotherVibe("softer"));
+    moreSpaceBtn.addEventListener("click", () => tryAnotherVibe("space"));
 
     buildHeroMeter();
     updateIntensityLabel();
