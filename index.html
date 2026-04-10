@@ -195,6 +195,16 @@
       font-size: 0.99rem;
     }
 
+    .brand-mark {
+      margin: 12px 0 0;
+      color: #cdd9ff;
+      font-size: 0.82rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-shadow: 0 0 14px rgba(90, 216, 255, 0.12), 0 0 18px rgba(143, 98, 255, 0.08);
+      opacity: 0.9;
+    }
+
     .hero-meter {
       display: flex;
       align-items: center;
@@ -692,6 +702,16 @@ select option {
       color: #f6f9ff;
     }
 
+    .result-helper {
+      margin-top: 14px;
+      color: #b8c9ff;
+      font-size: 0.84rem;
+      line-height: 1.6;
+      text-align: center;
+      text-shadow: 0 0 14px rgba(90, 216, 255, 0.08);
+      opacity: 0.92;
+    }
+
     .mini-meta {
       display: flex;
       flex-wrap: wrap;
@@ -817,6 +837,16 @@ select option {
       text-align: right;
     }
 
+    .brand-footer {
+      margin-top: 10px;
+      color: #95a5da;
+      font-size: 0.8rem;
+      line-height: 1.7;
+      text-align: center;
+      text-shadow: 0 0 16px rgba(90, 216, 255, 0.08), 0 0 22px rgba(143, 98, 255, 0.06);
+      opacity: 0.9;
+    }
+
     @media (max-width: 980px) {
       .app { grid-template-columns: 1fr; }
       .controls { position: static; }
@@ -849,6 +879,7 @@ select option {
       <div class="panel controls">
         <div class="eyebrow">AI Vocal Architect</div>
         <h1><span class="brand">VocalChain AI</span></h1>
+        <div class="brand-mark">✦ A Syzygy Entertainment Tool</div>
         <p class="subtitle">Generate polished vocal chains with the feel of a premium production suite. Shape the style, choose your DAW, and dial intensity for a faster creative starting point.</p>
 
         <div class="hero-meter" aria-hidden="true">
@@ -972,6 +1003,8 @@ select option {
               </div>
             </div>
 
+            <div class="result-helper" id="resultHelper" hidden>Use these settings in your DAW to recreate this vocal sound.</div>
+
             <div class="chain-grid">
               <div class="card">
                 <h3>EQ Section</h3>
@@ -998,6 +1031,7 @@ select option {
         </div>
 
         <div class="footer-note">Craft the first draft fast, then refine by ear like a real session.</div>
+        <div class="brand-footer">Developed inside the Syzygy Entertainment Universe — where creativity and the cosmos align</div>
       </div>
     </section>
   </main>
@@ -1016,6 +1050,7 @@ select option {
     const resultContent = document.getElementById("resultContent");
     const resultsBadge = document.getElementById("resultsBadge");
     const vibeText = document.getElementById("vibeText");
+    const resultHelper = document.getElementById("resultHelper");
     const metaStyle = document.getElementById("metaStyle");
     const metaDaw = document.getElementById("metaDaw");
     const metaIntensity = document.getElementById("metaIntensity");
@@ -1067,6 +1102,11 @@ const vocalPresets = {
       stereoWidth: "Narrow-natural",
       retuneSpeed: null,
       saturation: 2
+    },
+    learn: {
+      eq: "This keeps the vocal natural by trimming low-mid buildup, adding light presence, and keeping the top end open without overhyping it.",
+      comp: "Gentle compression smooths the performance and controls peaks while preserving the singer's original dynamics.",
+      fx: "Minimal ambience keeps the vocal polished and realistic instead of pushing it too far back in the mix."
     }
   },
 
@@ -1104,6 +1144,11 @@ const vocalPresets = {
       stereoWidth: "Focused",
       retuneSpeed: null,
       saturation: 9
+    },
+    learn: {
+      eq: "This removes rumble, trims mud, and pushes presence so the vocal cuts through heavy drums and 808s.",
+      comp: "Faster, firmer compression keeps peaks under control and helps the vocal stay locked in front.",
+      fx: "Tight ambience adds edge and space without softening the aggressive delivery."
     }
   },
 
@@ -1141,6 +1186,11 @@ const vocalPresets = {
       stereoWidth: "Wide",
       retuneSpeed: null,
       saturation: 6
+    },
+    learn: {
+      eq: "This keeps the vocal thick and moody while preventing low-mid weight from swallowing articulation.",
+      comp: "Softer control keeps the vocal cohesive without making the delivery feel too quick or modern.",
+      fx: "Longer, darker ambience and pitch movement support the slowed, warped atmosphere."
     }
   },
 
@@ -1178,6 +1228,11 @@ const vocalPresets = {
       stereoWidth: "Wide stereo spread",
       retuneSpeed: 8,
       saturation: 5
+    },
+    learn: {
+      eq: "This shapes the vocal for clarity and sheen so pitch-corrected melodic parts stay articulate and exciting.",
+      comp: "Balanced compression stabilizes the lead and helps tuned phrases feel smooth and connected.",
+      fx: "Width, delay, and tuning support the glossy modern melodic sound without losing focus."
     }
   },
 
@@ -1215,6 +1270,11 @@ const vocalPresets = {
       stereoWidth: "Wide but smooth",
       retuneSpeed: null,
       saturation: 4
+    },
+    learn: {
+      eq: "This keeps the vocal warm and silky while adding airy highs that feel polished instead of sharp.",
+      comp: "Softer compression preserves breath, phrasing, and intimacy while still evening out the take.",
+      fx: "Lush ambience and tasteful width create the smooth, premium R&B space around the lead."
     }
   }
 };
@@ -1268,6 +1328,11 @@ function buildCustomProfile(styleText) {
 
   base.label = "Custom Vocal";
   base.vibe = "Balanced, modern vocal shaping with clean control, readable presence, and adaptable ambience.";
+  base.learn = {
+    eq: "This gives the vocal a controlled foundation with enough presence and air to stay articulate in the mix.",
+    comp: "Moderate compression stabilizes levels and helps the vocal keep its place without feeling crushed.",
+    fx: "Tasteful ambience adds size and tone while preserving vocal focus."
+  };
   return base;
 }
 
@@ -1347,74 +1412,6 @@ function scaleProfile(profile, intensity) {
       "Other": { eq: "FabFilter Pro-Q Style EQ", comp: "1176 / Digital Vocal Compressor", fx: "Plate Reverb + Stereo Delay + Pitch Shifter" }
     };
 
-    const styleProfiles = [
-      {
-        keywords: ["aggressive", "rap", "drill", "trap", "hard"],
-        name: "Aggressive Rap",
-        vibe: "Forward, punchy, high-impact vocal tone with tight low-end cleanup, sharper presence, and decisive control so the lead cuts through heavy drums and 808s.",
-        eqBase: { hp: 90, lowCutSlope: "24 dB/oct", mudFreq: 280, mudCut: -3.5, presenceFreq: 4700, presenceBoost: 3.5, airFreq: 11000, airBoost: 2.5, deEssFreq: 7200, deEssAmt: 3.5 },
-        compBase: { ratio: 4, threshold: -18, attack: 10, release: 75, gainReduction: 4, makeup: 2.5 },
-        fxBase: { reverbMix: 9, reverbDecay: 1.1, delayMix: 11, delayTime: "1/8", pitch: "Off / subtle doubles only" },
-        learn: {
-          eq: "This removes rumble, trims boxiness, and pushes upper mids so the vocal stays dominant without clouding the beat.",
-          comp: "This controls fast peaks and keeps the take planted in front while preserving edge and attitude.",
-          fx: "Short ambience adds dimension while keeping the source tight and aggressive."
-        }
-      },
-      {
-        keywords: ["r&b", "clean", "smooth", "silky", "soul"],
-        name: "Clean R&B",
-        vibe: "Smooth, polished, intimate vocals with controlled warmth, glossy top-end, and gentle dynamics that feel premium without sounding brittle or overworked.",
-        eqBase: { hp: 75, lowCutSlope: "18 dB/oct", mudFreq: 250, mudCut: -2.5, presenceFreq: 3500, presenceBoost: 2.2, airFreq: 12500, airBoost: 4.2, deEssFreq: 6800, deEssAmt: 2.5 },
-        compBase: { ratio: 3, threshold: -21, attack: 24, release: 100, gainReduction: 3.5, makeup: 2 },
-        fxBase: { reverbMix: 17, reverbDecay: 1.9, delayMix: 13, delayTime: "1/4 dotted", pitch: "Light stereo doubler" },
-        learn: {
-          eq: "This keeps the vocal silky by reducing low-mid haze and adding a soft lift in the air band.",
-          comp: "A gentler compressor shape preserves nuance, breath, and emotional phrasing.",
-          fx: "Lush ambience and subtle width create the glossy intimacy common in polished R&B vocals."
-        }
-      },
-      {
-        keywords: ["chopped", "screwed", "slow", "slurred", "dark"],
-        name: "Chopped & Screwed",
-        vibe: "Heavy, syrupy, dark vocal character with a lower-energy front edge, thicker lower mids, softened transients, and wider space for a slowed, moody impression.",
-        eqBase: { hp: 65, lowCutSlope: "12 dB/oct", mudFreq: 320, mudCut: -1.8, presenceFreq: 2900, presenceBoost: 1.2, airFreq: 9000, airBoost: 1.1, deEssFreq: 6000, deEssAmt: 2 },
-        compBase: { ratio: 2.5, threshold: -22, attack: 28, release: 145, gainReduction: 3, makeup: 1.8 },
-        fxBase: { reverbMix: 22, reverbDecay: 2.8, delayMix: 20, delayTime: "1/2", pitch: "-3 to -5 semitones blend" },
-        learn: {
-          eq: "This leaves the vocal thick and moody while preventing the low mids from swallowing articulation.",
-          comp: "Softer compression holds the vocal together without making it feel too quick or modern.",
-          fx: "Longer, darker ambience and pitch movement support the slow, warped aesthetic."
-        }
-      },
-      {
-        keywords: ["pop", "bright", "radio", "commercial", "anthem"],
-        name: "Modern Pop",
-        vibe: "Bright, controlled, polished vocals with pop-forward clarity, tight dynamics, and wide but tidy effects that feel radio-ready and energetic.",
-        eqBase: { hp: 80, lowCutSlope: "18 dB/oct", mudFreq: 260, mudCut: -2.7, presenceFreq: 4300, presenceBoost: 2.8, airFreq: 13500, airBoost: 4.6, deEssFreq: 7600, deEssAmt: 3.2 },
-        compBase: { ratio: 3.5, threshold: -19, attack: 16, release: 82, gainReduction: 4.2, makeup: 2.4 },
-        fxBase: { reverbMix: 15, reverbDecay: 1.6, delayMix: 14, delayTime: "1/8 dotted", pitch: "Subtle micro-shift widen" },
-        learn: {
-          eq: "This creates intelligibility and sheen while cleaning the low-mid area that can make pop vocals sound crowded.",
-          comp: "Balanced compression locks the vocal in place and helps every phrase read consistently.",
-          fx: "Tempo-aware delays and controlled width deliver dimension without losing the center vocal."
-        }
-      },
-      {
-        keywords: ["lofi", "indie", "vintage", "dusty", "soft"],
-        name: "Lo-Fi Indie",
-        vibe: "Soft-edged, character-forward vocals with restrained brightness, gentle control, and atmospheric effects that feel intimate, worn-in, and emotionally close.",
-        eqBase: { hp: 70, lowCutSlope: "12 dB/oct", mudFreq: 300, mudCut: -1.6, presenceFreq: 3100, presenceBoost: 1.5, airFreq: 10000, airBoost: 1.3, deEssFreq: 6500, deEssAmt: 2 },
-        compBase: { ratio: 2.8, threshold: -23, attack: 30, release: 120, gainReduction: 2.8, makeup: 1.6 },
-        fxBase: { reverbMix: 19, reverbDecay: 2.2, delayMix: 12, delayTime: "1/4", pitch: "Optional light detune" },
-        learn: {
-          eq: "This keeps the tone mellow and textured instead of overly polished or clinical.",
-          comp: "Lighter control protects the human movement that helps lo-fi vocals feel alive.",
-          fx: "Soft ambience supports mood and depth without turning the vocal glossy."
-        }
-      }
-    ];
-
     const clamp = (num, min, max) => Math.min(Math.max(num, min), max);
     const formatDb = value => `${value > 0 ? "+" : ""}${value.toFixed(1)} dB`;
 
@@ -1446,105 +1443,7 @@ function scaleProfile(profile, intensity) {
       updateMiniDashboard();
     }
 
-    function applyPreset(text, intensity) {
-      const styleField = document.getElementById("styleInput");
-      const slider = document.getElementById("intensity") || intensityControl;
-
-      if (styleField) {
-        styleField.value = text;
-        styleField.dispatchEvent(new Event("input", { bubbles: true }));
-        styleField.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-
-      if (slider && typeof intensity !== "undefined") {
-        slider.value = intensity;
-      }
-
-      if (typeof updateIntensityLabel === "function") {
-        updateIntensityLabel();
-      }
-
-      if (typeof updateEnergyMeter === "function") {
-        updateEnergyMeter();
-      } else if (typeof updateHeroMeter === "function") {
-        updateHeroMeter();
-      }
-    }
-
-    window.applyPreset = applyPreset;
     window.updateEnergyMeter = window.updateEnergyMeter || updateHeroMeter;
-
-    function getProfile(styleText) {
-      const lower = styleText.toLowerCase();
-      for (const profile of styleProfiles) {
-        if (profile.keywords.some(keyword => lower.includes(keyword))) return profile;
-      }
-      return {
-        name: "Custom Vocal",
-        vibe: "Balanced, modern vocal shaping with clarity, dynamic control, and atmosphere designed around the mood you described.",
-        eqBase: { hp: 80, lowCutSlope: "18 dB/oct", mudFreq: 280, mudCut: -2.4, presenceFreq: 4000, presenceBoost: 2.5, airFreq: 12000, airBoost: 3.1, deEssFreq: 7000, deEssAmt: 3 },
-        compBase: { ratio: 3.2, threshold: -20, attack: 18, release: 90, gainReduction: 3.8, makeup: 2.1 },
-        fxBase: { reverbMix: 14, reverbDecay: 1.7, delayMix: 12, delayTime: "1/8", pitch: "Optional subtle widening" },
-        learn: {
-          eq: "This gives the vocal a controlled foundation with enough presence and air to stay articulate in the mix.",
-          comp: "Moderate compression stabilizes levels and helps the vocal keep its place without feeling crushed.",
-          fx: "Tasteful ambience adds size and tone while preserving vocal focus."
-        }
-      };
-    }
-
-   function interpolateIntensity(intensity, low, mid, high) {
-  if (intensity <= 5) {
-    const t = (intensity - 1) / 4;
-    return low + (mid - low) * t;
-  }
-  const t = (intensity - 5) / 5;
-  return mid + (high - mid) * t;
-}
-
-function scaleProfile(profile, intensity) {
-  const toneMultiplier = intensity / 5;
-  const attackTightening = interpolateIntensity(intensity, 0, 4, 10);
-  const releaseTightening = interpolateIntensity(intensity, 0, 10, 26);
-  const wetMix = interpolateIntensity(intensity, 10, 20, 35);
-  const saturationAmount = interpolateIntensity(intensity, 3, 8, 15);
-
-  const mudCut = profile.eqBase.mudCut * toneMultiplier;
-  const presenceBoost = profile.eqBase.presenceBoost * toneMultiplier;
-  const airBoost = profile.eqBase.airBoost * toneMultiplier;
-  const deEssAmt = profile.eqBase.deEssAmt * Math.max(0.8, intensity / 6);
-
-  return {
-    eq: {
-      hp: Math.round(profile.eqBase.hp + interpolateIntensity(intensity, 0, 8, 18)),
-      lowCutSlope: profile.eqBase.lowCutSlope,
-      mudFreq: profile.eqBase.mudFreq,
-      mudCut,
-      presenceFreq: profile.eqBase.presenceFreq,
-      presenceBoost,
-      airFreq: profile.eqBase.airFreq,
-      airBoost,
-      deEssFreq: profile.eqBase.deEssFreq,
-      deEssAmt
-    },
-    comp: {
-      ratio: interpolateIntensity(intensity, 2, 4, 8),
-      threshold: profile.compBase.threshold - interpolateIntensity(intensity, 0, 4, 10),
-      attack: clamp(profile.compBase.attack - attackTightening, 2, 35),
-      release: Math.round(clamp(profile.compBase.release - releaseTightening, 45, 180)),
-      gainReduction: interpolateIntensity(intensity, 2, 5, 10),
-      makeup: profile.compBase.makeup + interpolateIntensity(intensity, 0.5, 2, 4)
-    },
-    fx: {
-      reverbMix: wetMix,
-      reverbDecay: profile.fxBase.reverbDecay + interpolateIntensity(intensity, 0, 0.35, 1.1),
-      delayMix: clamp(wetMix - 2 + profile.fxBase.delayMix * 0.15, 10, 35),
-      delayTime: profile.fxBase.delayTime,
-      pitch: profile.fxBase.pitch,
-      saturationAmount
-    }
-  };
-}
 
     function fxFlavor(styleText, intensity) {
       const lower = styleText.toLowerCase();
@@ -1567,7 +1466,9 @@ function scaleProfile(profile, intensity) {
     }
 
     function renderSettingLines(container, items) {
-      container.innerHTML = items.map(item => `<div class="setting-line"><strong>${item.label}</strong><span>${item.value}</span></div>`).join("");
+      container.innerHTML = items
+        .map(item => `<div class="setting-line"><strong>${item.label}</strong><span>${item.value}</span></div>`)
+        .join("");
     }
 
     function generateChain() {
@@ -1579,32 +1480,26 @@ function scaleProfile(profile, intensity) {
       const plugins = pluginMap[daw];
       const scaled = scaleProfile(profile, intensity);
       const fxStyle = fxFlavor(style, intensity);
+      const toneMode = intensity >= 7 ? "Bold" : intensity <= 3 ? "Smooth" : "Balanced";
+      const spaceMode = intensity >= 7 ? "Expanded" : intensity <= 3 ? "Tight" : "Focused";
 
-renderSettingLines(fxSettings, [
-  { label: "Reverb", value: `${fxStyle.reverbType} | Mix ${scaled.fx.reverbMix.toFixed(1)}% | Decay ${scaled.fx.reverbDecay.toFixed(1)}s | Pre-delay ${Math.round(18 + intensity * 3)} ms` },
-  { label: "Delay", value: `${fxStyle.delayType} | Mix ${scaled.fx.delayMix.toFixed(1)}% | Time ${scaled.fx.delayTime} | Low-cut 180 Hz / High-cut ${Math.round(4200 + intensity * 280)} Hz` },
-  { label: "Pitch", value: `${scaled.fx.pitch} | ${fxStyle.pitchExtra}` },
-  { label: "Saturation", value: `${scaled.fx.saturationAmount.toFixed(1)}% drive | ${intensity <= 3 ? "subtle warmth" : intensity <= 7 ? "present harmonic lift" : "aggressive harmonic color"}` }
-]);
-
-      const vibeVariants = [
-        `${profile.vibe} At intensity ${intensity}, the chain leans ${intensity >= 7 ? "bolder, brighter, and more tightly controlled" : intensity <= 3 ? "softer, smoother, and more natural" : "balanced with modern polish and confident focus"}.`,
-        `For "${style}", this setup targets a ${profile.name.toLowerCase()} direction with ${intensity >= 7 ? "stronger contouring, heavier grip, and more dramatic ambience" : intensity <= 3 ? "lighter shaping, easier dynamics, and restrained space" : "clean definition, stable tone, and intentional depth"}.`,
-        `This chain is voiced for a ${profile.name.toLowerCase()} feel: ${intensity >= 7 ? "more edge, firmer control, and heightened excitement" : intensity <= 3 ? "more openness, softer contour, and subtle width" : "clear articulation with enough character to feel premium"}.`
-      ];
-
-      vibeText.textContent = vibeVariants[intensity % vibeVariants.length];
+      vibeText.innerHTML = [
+        `<strong>Profile</strong>: ${profile.label}`,
+        `<strong>Mode</strong>: ${toneMode}`,
+        `<strong>Space</strong>: ${spaceMode}`,
+        `<strong>Drive</strong>: ${intensity}/10`
+      ].join("<br>");
       metaStyle.textContent = `Style: ${style}`;
       metaDaw.textContent = `DAW: ${daw}`;
       metaIntensity.textContent = `Intensity: ${intensity}/10`;
 
       eqPlugin.textContent = plugins.eq;
       renderSettingLines(eqSettings, [
-        { label: "High-pass", value: `${scaled.eq.hp} Hz, ${scaled.eq.lowCutSlope}` },
-        { label: "Low-Mid Cut", value: `${scaled.eq.mudFreq} Hz at ${formatDb(scaled.eq.mudCut)} (Q 1.2)` },
-        { label: "Presence", value: `${(scaled.eq.presenceFreq / 1000).toFixed(1)} kHz at ${formatDb(scaled.eq.presenceBoost)} (wide bell)` },
-        { label: "Air Shelf", value: `${(scaled.eq.airFreq / 1000).toFixed(1)} kHz at ${formatDb(scaled.eq.airBoost)}` },
-        { label: "De-Ess", value: `${(scaled.eq.deEssFreq / 1000).toFixed(1)} kHz, reduce ${scaled.eq.deEssAmt.toFixed(1)} dB as needed` }
+        { label: "HPF", value: `${scaled.eq.hpf} Hz, ${scaled.eq.slope}` },
+        { label: "Low-Mid", value: `${scaled.eq.moves[0].freq} Hz, ${formatDb(scaled.eq.moves[0].scaledGain)}, Q ${scaled.eq.moves[0].q}` },
+        { label: "Presence", value: `${(scaled.eq.moves[1].freq / 1000).toFixed(1)} kHz, ${formatDb(scaled.eq.moves[1].scaledGain)}` },
+        { label: "Air", value: `${(scaled.eq.moves[2].freq / 1000).toFixed(1)} kHz, ${formatDb(scaled.eq.moves[2].scaledGain)}` },
+        { label: "De-Esser", value: `${(scaled.eq.deEss.freq / 1000).toFixed(1)} kHz, ${scaled.eq.deEss.amount.toFixed(1)} dB` }
       ]);
 
       compPlugin.textContent = plugins.comp;
@@ -1619,9 +1514,11 @@ renderSettingLines(fxSettings, [
 
       fxPlugin.textContent = plugins.fx;
       renderSettingLines(fxSettings, [
-        { label: "Reverb", value: `${fxStyle.reverbType} | Mix ${scaled.fx.reverbMix.toFixed(1)}% | Decay ${scaled.fx.reverbDecay.toFixed(1)}s | Pre-delay ${Math.round(18 + intensity * 3)} ms` },
-        { label: "Delay", value: `${fxStyle.delayType} | Mix ${scaled.fx.delayMix.toFixed(1)}% | Time ${scaled.fx.delayTime} | Low-cut 180 Hz / High-cut ${Math.round(4200 + intensity * 280)} Hz` },
-        { label: "Pitch", value: `${scaled.fx.pitch} | ${fxStyle.pitchExtra}` }
+        { label: "Reverb", value: `${fxStyle.reverbType}, ${scaled.fx.reverbMix.toFixed(1)}%, ${scaled.fx.reverbDecay.toFixed(1)}s, Pre ${Math.round(18 + intensity * 3)} ms` },
+        { label: "Delay", value: `${fxStyle.delayType}, ${scaled.fx.delayMix.toFixed(1)}%, ${scaled.fx.delayTime}` },
+        { label: "Pitch", value: `${scaled.fx.pitchShift}` },
+        { label: "Stereo", value: `${scaled.fx.stereoWidth}${scaled.fx.retuneSpeed ? `, Retune ${scaled.fx.retuneSpeed} ms` : ""}` },
+        { label: "Saturation", value: `${scaled.fx.saturationAmount.toFixed(1)}% drive` }
       ]);
 
       eqLearn.hidden = !learnMode;
@@ -1632,7 +1529,8 @@ renderSettingLines(fxSettings, [
       compLearn.textContent = profile.learn.comp;
       fxLearn.textContent = profile.learn.fx;
 
-      resultsBadge.textContent = `${profile.name} chain ready`;
+      resultsBadge.textContent = `${profile.label} chain ready`;
+      resultHelper.hidden = false;
       emptyState.style.display = "none";
       resultContent.classList.remove("show");
       void resultContent.offsetWidth;
