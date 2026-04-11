@@ -1013,6 +1013,12 @@ select option {
               <button class="preset-btn" type="button" onclick="applyPreset('melodic rap with autotune, modern, atmospheric', 7)"><span class="preset-title">Autotune Vibe</span><span class="preset-note">Modern, melodic, tuned character</span></button>
               <button class="preset-btn" type="button" onclick="applyPreset('smooth R&amp;B vocal, warm, controlled dynamics, soft compression, airy highs', 5)"><span class="preset-title">Smooth R&amp;B</span><span class="preset-note">Warm, soft, intimate tone</span></button>
             </div>
+            <div class="result-helper" id="presetPreviewWrap">
+              <audio id="presetPreviewPlayer" controls preload="none">
+                <source id="presetPreviewSource" src="" type="audio/mpeg" />
+                Your browser does not support audio preview.
+              </audio>
+            </div>
           </div>
 
           <div class="field">
@@ -1190,6 +1196,8 @@ select option {
     const resultContent = document.getElementById("resultContent");
     const resultsBadge = document.getElementById("resultsBadge");
     const copySettingsBtn = document.getElementById("copySettingsBtn");
+    const presetPreviewPlayer = document.getElementById("presetPreviewPlayer");
+    const presetPreviewSource = document.getElementById("presetPreviewSource");
     const vibeText = document.getElementById("vibeText");
     const resultHelper = document.getElementById("resultHelper");
     const metaStyle = document.getElementById("metaStyle");
@@ -1432,8 +1440,30 @@ const presetTextMap = Object.fromEntries(
   Object.entries(vocalPresets).map(([key, preset]) => [preset.text, key])
 );
 
+const presetPreviewMap = {
+  cleanNatural: "/audio/clean.mp3",
+  aggressiveRap: "/audio/aggressive.mp3",
+  choppedScrewed: "/audio/aggressive.mp3",
+  autotuneVibe: "/audio/aggressive.mp3",
+  smoothRnB: "/audio/rnb.mp3"
+};
+
 function clonePresetProfile(preset) {
   return JSON.parse(JSON.stringify(preset));
+}
+
+function playPresetPreview(presetKey) {
+  const previewSrc = presetPreviewMap[presetKey];
+  if (!presetPreviewPlayer || !presetPreviewSource || !previewSrc) return;
+
+  if (presetPreviewPlayer.dataset.currentSrc !== previewSrc) {
+    presetPreviewSource.src = previewSrc;
+    presetPreviewPlayer.dataset.currentSrc = previewSrc;
+    presetPreviewPlayer.load();
+  }
+
+  presetPreviewPlayer.currentTime = 0;
+  presetPreviewPlayer.play().catch(() => {});
 }
 
 function applyPreset(text, intensity) {
@@ -1454,6 +1484,10 @@ function applyPreset(text, intensity) {
   if (typeof updateIntensityLabel === "function") updateIntensityLabel();
   if (typeof updateEnergyMeter === "function") updateEnergyMeter();
   else if (typeof updateHeroMeter === "function") updateHeroMeter();
+
+  if (activePresetKey) {
+    playPresetPreview(activePresetKey);
+  }
 }
 
 window.applyPreset = applyPreset;
@@ -1672,12 +1706,19 @@ function scaleProfile(profile, intensity) {
 
     function tryAnotherVibe(mode) {
       const adjustments = {
-        aggressive: " more aggressive, punchier, more compression",
-        softer: " softer, smoother, less compression",
-        space: " more reverb, more delay, wider stereo"
+        aggressive: "aggressive, punchy, upfront, tighter compression",
+        softer: "soft, smooth, gentle, less compression",
+        space: "wide, ambient, more reverb, more delay"
       };
 
-      styleInput.value = `${styleInput.value.trim() || "modern vocal"}${adjustments[mode] || ""}`.trim();
+      const modifierPattern = /\s*(aggressive,\s*punchy,\s*upfront,\s*tighter compression|soft,\s*smooth,\s*gentle,\s*less compression|wide,\s*ambient,\s*more reverb,\s*more delay)\s*/gi;
+      const baseStyle = (styleInput.value.trim() || "modern vocal")
+        .replace(modifierPattern, "")
+        .replace(/\s+,/g, ",")
+        .replace(/^,\s*|\s*,\s*$/g, "")
+        .trim();
+
+      styleInput.value = baseStyle ? `${baseStyle}, ${adjustments[mode] || ""}` : adjustments[mode] || "modern vocal";
       styleInput.dispatchEvent(new Event("input", { bubbles: true }));
       generateChain();
     }
