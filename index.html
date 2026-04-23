@@ -12,7 +12,7 @@
       --panel: rgba(13, 18, 39, 0.68);
       --line: rgba(150, 165, 255, 0.16);
       --text: #eef3ff;
-      --muted: #98a7da;
+      --muted: #b8c6f0;
       --cyan: #5ad8ff;
       --blue: #6c7cff;
       --violet: #8f62ff;
@@ -92,6 +92,12 @@
       to { opacity: 1; transform: translateY(0) scale(1); }
     }
 
+    @keyframes flowDot {
+      from { offset-distance: 0%; opacity: 0.25; }
+      20%, 80% { opacity: 1; }
+      to { offset-distance: 100%; opacity: 0.25; }
+    }
+
     .noise {
       position: fixed;
       inset: 0;
@@ -114,11 +120,11 @@
     }
 
     .app {
-      width: min(1180px, 100%);
-      display: grid;
-      grid-template-columns: 1fr 1.08fr;
+      width: min(780px, 100%);
+      display: flex;
+      flex-direction: column;
       gap: 26px;
-      align-items: start;
+      align-items: stretch;
     }
 
     .panel {
@@ -148,8 +154,7 @@
     }
 
     .controls {
-      position: sticky;
-      top: 24px;
+      position: static;
     }
 
     .eyebrow {
@@ -284,6 +289,12 @@
       transform: scale(0.99);
     }
 
+    .preset-btn:focus-visible,
+    .utility-btn:focus-visible {
+      outline: 2px solid #5ad8ff;
+      outline-offset: 3px;
+    }
+
     .preset-title {
       display: block;
     }
@@ -310,6 +321,27 @@
     .input-shell:focus-within {
       transform: translateY(-1px);
       box-shadow: 0 0 0 4px rgba(90, 216, 255, 0.08), 0 0 26px rgba(90, 216, 255, 0.12);
+    }
+
+    .ai-style-row {
+      display: flex;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .ai-style-row .input-shell {
+      flex: 1;
+    }
+
+    .ai-description-box {
+      padding: 11px 13px;
+      border: 1px solid var(--cyan);
+      border-radius: 16px;
+      background: var(--panel);
+      color: var(--text);
+      font-size: 0.86rem;
+      line-height: 1.55;
+      box-shadow: var(--glow);
     }
 
     input[type="text"],
@@ -564,7 +596,6 @@ select option {
     }
 
     .results {
-      min-height: 700px;
       display: flex;
       flex-direction: column;
       gap: 18px;
@@ -781,6 +812,26 @@ select option {
       margin-top: 18px;
     }
 
+    .signal-chain {
+      margin-top: 18px;
+      padding: 16px;
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(16, 22, 47, 0.9), rgba(8, 12, 27, 0.9));
+      border: 1px solid rgba(141, 164, 255, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), var(--shadow-md);
+    }
+
+    .signal-chain svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .flow-dot {
+      animation: flowDot 1.8s linear infinite;
+      offset-rotate: 0deg;
+    }
+
     .card {
       position: relative;
       overflow: hidden;
@@ -960,19 +1011,14 @@ select option {
       gap: 10px;
     }
 
-    @media (max-width: 980px) {
-      .app { grid-template-columns: 1fr; }
-      .controls { position: static; }
-      .results { min-height: unset; }
-    }
-
     @media (max-width: 620px) {
       .controls,
-      .results { padding: 22px; }
+      .results { padding: 16px; }
 
       .results-header,
       .field-row,
-      .toggle {
+      .toggle,
+      .ai-style-row {
         flex-direction: column;
         align-items: flex-start;
       }
@@ -1012,12 +1058,9 @@ select option {
               <button class="preset-btn" type="button" onclick="applyPreset('chopped and screwed, slow, pitch shifted', 6)"><span class="preset-title">Chopped &amp; Screwed</span><span class="preset-note">Slow, warped, textured vibe</span></button>
               <button class="preset-btn" type="button" onclick="applyPreset('melodic rap with autotune, modern, atmospheric', 7)"><span class="preset-title">Autotune Vibe</span><span class="preset-note">Modern, melodic, tuned character</span></button>
               <button class="preset-btn" type="button" onclick="applyPreset('smooth R&amp;B vocal, warm, controlled dynamics, soft compression, airy highs', 5)"><span class="preset-title">Smooth R&amp;B</span><span class="preset-note">Warm, soft, intimate tone</span></button>
-            </div>
-            <div class="result-helper" id="presetPreviewWrap">
-              <audio id="presetPreviewPlayer" controls preload="none">
-                <source id="presetPreviewSource" src="" type="audio/mpeg" />
-                Your browser does not support audio preview.
-              </audio>
+              <button class="preset-btn" type="button" onclick="applyPreset('gospel big choir lead, church, soulful, wide hall', 6)"><span class="preset-title">Gospel / Big Choir Lead</span><span class="preset-note">Powerful, soulful, spacious lead</span></button>
+              <button class="preset-btn" type="button" onclick="applyPreset('lo-fi bedroom pop, indie, cassette, vintage', 4)"><span class="preset-title">Lo-Fi / Bedroom Pop</span><span class="preset-note">Warm, dusty, intimate texture</span></button>
+              <button class="preset-btn" type="button" onclick="applyPreset('drill dark trap, sinister, punchy, upfront', 8)"><span class="preset-title">Drill / Dark Trap</span><span class="preset-note">Dark, tight, aggressive focus</span></button>
             </div>
           </div>
 
@@ -1026,9 +1069,13 @@ select option {
               <label for="styleInput">Vocal Style</label>
               <span class="field-hint">Describe the character or genre</span>
             </div>
-            <div class="input-shell">
-              <input id="styleInput" type="text" placeholder="Describe your vocal style..." value="aggressive rap" />
+            <div class="ai-style-row">
+              <div class="input-shell">
+                <input id="styleInput" type="text" placeholder="Describe your vocal style..." value="aggressive rap" />
+              </div>
+              <button class="utility-btn" id="aiInterpretBtn" type="button"><span class="pulse-dot"></span>Interpret with AI</button>
             </div>
+            <div class="ai-description-box" id="aiDescriptionBox" hidden></div>
           </div>
 
           <div class="field">
@@ -1054,7 +1101,7 @@ select option {
                 <span class="field-hint">Higher values push compression, boosts, and FX harder</span>
                 <span class="slider-value" id="intensityValue">6 / 10</span>
               </div>
-              <input id="intensityRange" type="range" min="1" max="10" value="6" />
+              <input id="intensityRange" type="range" min="1" max="10" value="6" aria-label="Intensity level, 1 to 10" aria-valuetext="6 out of 10" />
             </div>
           </div>
 
@@ -1111,9 +1158,11 @@ select option {
             </div>
           </div>
 
-          <div class="result-content" id="resultContent">
+          <div class="result-content" id="resultContent" aria-live="polite" aria-atomic="true">
             <div class="result-actions">
               <button class="utility-btn" id="copySettingsBtn" type="button" hidden>Copy Settings</button>
+              <button class="utility-btn" id="saveChainBtn" type="button" hidden>Save This Chain</button>
+              <button class="utility-btn" id="shareChainBtn" type="button" hidden>Share Chain</button>
             </div>
 
             <div class="vibe-box">
@@ -1127,6 +1176,8 @@ select option {
             </div>
 
             <div class="result-helper" id="resultHelper" hidden>Use these settings in your DAW to recreate this vocal sound.</div>
+
+            <div class="signal-chain" id="signalChain" hidden></div>
 
             <div class="chain-grid">
               <div class="card">
@@ -1173,6 +1224,12 @@ select option {
                 <button class="utility-btn" id="moreSpaceBtn" type="button">More Space</button>
               </div>
             </div>
+
+            <details class="card" id="savedChainsSection">
+              <summary class="vibe-actions-title">Saved Chains</summary>
+              <div class="settings" id="savedChainsList"></div>
+              <button class="utility-btn" id="clearHistoryBtn" type="button">Clear History</button>
+            </details>
           </div>
         </div>
 
@@ -1180,13 +1237,20 @@ select option {
         <div class="brand-footer">Developed inside the Syzygy Entertainment Universe — where creativity and the cosmos align</div>
       </div>
     </section>
+    <footer style="text-align:center; margin-top:40px; opacity:0.6; font-size:12px;">
+      © 2026 Syzygy Entertainment. All rights reserved. <br>
+      A proprietary tool developed by Syzygy Entertainment.
+    </footer>
   </main>
 
   <script>
+    const WORKER_URL = "https://your-worker.workers.dev";
     const styleInput = document.getElementById("styleInput");
+    const aiInterpretBtn = document.getElementById("aiInterpretBtn");
+    const aiDescriptionBox = document.getElementById("aiDescriptionBox");
     const dawSelect = document.getElementById("dawSelect");
     const intensityRange = document.getElementById("intensityRange");
-    const intensityControl = document.getElementById("intensity") || intensityRange;
+    const intensityControl = document.getElementById("intensityRange") || intensityRange;
     const intensityValue = document.getElementById("intensityValue");
     const learnToggle = document.getElementById("learnToggle");
     const generateBtn = document.getElementById("generateBtn");
@@ -1196,10 +1260,11 @@ select option {
     const resultContent = document.getElementById("resultContent");
     const resultsBadge = document.getElementById("resultsBadge");
     const copySettingsBtn = document.getElementById("copySettingsBtn");
-    const presetPreviewPlayer = document.getElementById("presetPreviewPlayer");
-    const presetPreviewSource = document.getElementById("presetPreviewSource");
+    const saveChainBtn = document.getElementById("saveChainBtn");
+    const shareChainBtn = document.getElementById("shareChainBtn");
     const vibeText = document.getElementById("vibeText");
     const resultHelper = document.getElementById("resultHelper");
+    const signalChain = document.getElementById("signalChain");
     const metaStyle = document.getElementById("metaStyle");
     const metaDaw = document.getElementById("metaDaw");
     const metaIntensity = document.getElementById("metaIntensity");
@@ -1221,6 +1286,8 @@ select option {
     const moreAggressiveBtn = document.getElementById("moreAggressiveBtn");
     const softerBtn = document.getElementById("softerBtn");
     const moreSpaceBtn = document.getElementById("moreSpaceBtn");
+    const savedChainsList = document.getElementById("savedChainsList");
+    const clearHistoryBtn = document.getElementById("clearHistoryBtn");
 
 const vocalPresets = {
   cleanNatural: {
@@ -1431,6 +1498,132 @@ const vocalPresets = {
       comp: "Softer compression preserves breath, phrasing, and intimacy while still evening out the take.",
       fx: "Lush ambience and tasteful width create the smooth, premium R&B space around the lead."
     }
+  },
+
+  gospelBigChoirLead: {
+    label: "Gospel / Big Choir Lead",
+    text: "gospel big choir lead, church, soulful, wide hall",
+    recommendedIntensity: 6,
+    keywords: ["gospel", "church", "choir", "big", "soulful"],
+    vibe: "Powerful, soulful lead vocal with big choir energy, controlled low mids, and a spacious hall around the performance.",
+    eqBase: {
+      hpf: 90,
+      slope: "18 dB/oct",
+      moves: [
+        { label: "Low-Mid Cut", freq: 300, gain: -2.0, q: 1.1, type: "bell" },
+        { label: "Presence", freq: 3500, gain: 2.5, q: 0.9, type: "bell" },
+        { label: "Air", freq: 10000, gain: 2.0, q: 0.7, type: "shelf" }
+      ],
+      deEss: { freq: 7000, amount: 2.8 }
+    },
+    compBase: {
+      ratio: 3,
+      attack: 18,
+      release: 100,
+      gainReduction: 4,
+      threshold: -18
+    },
+    fxBase: {
+      reverbType: "Lush hall",
+      reverbMix: 28,
+      reverbDecay: 2.4,
+      delayType: "1/4 dotted delay",
+      delayMix: 16,
+      delayTime: "1/4 dotted",
+      pitchShift: "None",
+      stereoWidth: "Wide stereo",
+      retuneSpeed: null,
+      saturation: 4
+    },
+    learn: {
+      eq: "EQ keeps the power without mud.",
+      comp: "Compression preserves the natural swell of a big performance.",
+      fx: "Hall reverb puts the vocal in a large space without washing it out."
+    }
+  },
+
+  lofiBedroomPop: {
+    label: "Lo-Fi / Bedroom Pop",
+    text: "lo-fi bedroom pop, indie, cassette, vintage",
+    recommendedIntensity: 4,
+    keywords: ["lo-fi", "lofi", "bedroom", "indie", "cassette", "vintage"],
+    vibe: "Warm, intimate bedroom-pop vocal with cassette-style texture, softened highs, and a small room feel.",
+    eqBase: {
+      hpf: 120,
+      slope: "12 dB/oct",
+      moves: [
+        { label: "Low-Mid Boost", freq: 400, gain: 1.5, q: 1.2, type: "bell" },
+        { label: "Presence Cut", freq: 5000, gain: -1.5, q: 0.9, type: "bell" },
+        { label: "Top Roll-Off", freq: 8000, gain: -2.0, q: 0.7, type: "shelf" }
+      ],
+      deEss: { freq: 6500, amount: 1.8 }
+    },
+    compBase: {
+      ratio: 2.5,
+      attack: 30,
+      release: 130,
+      gainReduction: 3,
+      threshold: -14
+    },
+    fxBase: {
+      reverbType: "Small room / spring",
+      reverbMix: 18,
+      reverbDecay: 0.9,
+      delayType: "1/8 slapback delay",
+      delayMix: 12,
+      delayTime: "1/8 slapback",
+      pitchShift: "Slight pitch wobble / tape flutter",
+      stereoWidth: "Narrow stereo",
+      retuneSpeed: null,
+      saturation: 5
+    },
+    learn: {
+      eq: "Rolling off the highs and boosting low-mids gives that warm cassette feel.",
+      comp: "Light compression keeps it human and unpolished.",
+      fx: "Short reverb adds room without sounding modern."
+    }
+  },
+
+  drillDarkTrap: {
+    label: "Drill / Dark Trap",
+    text: "drill dark trap, sinister, punchy, upfront",
+    recommendedIntensity: 8,
+    keywords: ["drill", "dark trap", "uk drill", "dark", "sinister"],
+    vibe: "Dark, sinister vocal with tight dynamics, sharp presence, and focused space for 808-heavy beats.",
+    eqBase: {
+      hpf: 110,
+      slope: "24 dB/oct",
+      moves: [
+        { label: "Low-Mid Cut", freq: 260, gain: -4.0, q: 1.3, type: "bell" },
+        { label: "Presence", freq: 5000, gain: 3.0, q: 0.9, type: "bell" },
+        { label: "Air", freq: 12000, gain: 1.5, q: 0.7, type: "shelf" }
+      ],
+      deEss: { freq: 7500, amount: 4.0 }
+    },
+    compBase: {
+      ratio: 6,
+      attack: 5,
+      release: 60,
+      gainReduction: 7,
+      threshold: -24
+    },
+    fxBase: {
+      reverbType: "Dark short plate",
+      reverbMix: 10,
+      reverbDecay: 0.9,
+      delayType: "Ping-pong slap",
+      delayMix: 14,
+      delayTime: "1/8",
+      pitchShift: "Optional octave-down parallel layer",
+      stereoWidth: "Focused mono-ish stereo",
+      retuneSpeed: null,
+      saturation: 9
+    },
+    learn: {
+      eq: "The aggressive HPF and presence push cut through dark 808-heavy beats.",
+      comp: "Fast hard compression keeps the vocal locked and punchy.",
+      fx: "Tight dry reverb keeps the atmosphere dark without washing out the aggression."
+    }
   }
 };
 
@@ -1440,35 +1633,26 @@ const presetTextMap = Object.fromEntries(
   Object.entries(vocalPresets).map(([key, preset]) => [preset.text, key])
 );
 
-const presetPreviewMap = {
-  cleanNatural: "/audio/clean.mp3",
-  aggressiveRap: "/audio/aggressive.mp3",
-  choppedScrewed: "/audio/aggressive.mp3",
-  autotuneVibe: "/audio/aggressive.mp3",
-  smoothRnB: "/audio/rnb.mp3"
+const aiPresetKeyMap = {
+  cleanNatural: "cleanNatural",
+  aggressiveRap: "aggressiveRap",
+  choppedScrewed: "choppedScrewed",
+  autotuneVibe: "autotuneVibe",
+  smoothRnB: "smoothRnB",
+  gospelChoir: "gospelBigChoirLead",
+  gospelBigChoirLead: "gospelBigChoirLead",
+  loFiBedroom: "lofiBedroomPop",
+  lofiBedroomPop: "lofiBedroomPop",
+  drillDarkTrap: "drillDarkTrap"
 };
 
 function clonePresetProfile(preset) {
   return JSON.parse(JSON.stringify(preset));
 }
 
-function playPresetPreview(presetKey) {
-  const previewSrc = presetPreviewMap[presetKey];
-  if (!presetPreviewPlayer || !presetPreviewSource || !previewSrc) return;
-
-  if (presetPreviewPlayer.dataset.currentSrc !== previewSrc) {
-    presetPreviewSource.src = previewSrc;
-    presetPreviewPlayer.dataset.currentSrc = previewSrc;
-    presetPreviewPlayer.load();
-  }
-
-  presetPreviewPlayer.currentTime = 0;
-  presetPreviewPlayer.play().catch(() => {});
-}
-
 function applyPreset(text, intensity) {
   const styleField = document.getElementById("styleInput");
-  const slider = document.getElementById("intensity") || intensityControl;
+  const slider = document.getElementById("intensityRange") || intensityControl;
   activePresetKey = presetTextMap[text] || null;
 
   if (styleField) {
@@ -1484,10 +1668,6 @@ function applyPreset(text, intensity) {
   if (typeof updateIntensityLabel === "function") updateIntensityLabel();
   if (typeof updateEnergyMeter === "function") updateEnergyMeter();
   else if (typeof updateHeroMeter === "function") updateHeroMeter();
-
-  if (activePresetKey) {
-    playPresetPreview(activePresetKey);
-  }
 }
 
 window.applyPreset = applyPreset;
@@ -1620,6 +1800,7 @@ function scaleProfile(profile, intensity) {
 
     function updateIntensityLabel() {
       intensityValue.textContent = `${intensityRange.value} / 10`;
+      intensityRange.setAttribute("aria-valuetext", `${intensityRange.value} out of 10`);
       updateHeroMeter();
       updateMiniDashboard();
     }
@@ -1665,6 +1846,57 @@ function scaleProfile(profile, intensity) {
       eqHighBar.style.transform = highAmount > 68 ? "scaleY(1.06)" : "scaleY(1)";
     }
 
+    function renderSignalChain(profile, scaled) {
+      const isMobile = window.matchMedia("(max-width: 620px)").matches;
+      const nodes = [
+        { label: "Input", value: profile.label, color: "var(--cyan)" },
+        { label: "EQ", value: `HPF ${scaled.eq.hpf} Hz`, color: "var(--blue)" },
+        { label: "Compressor", value: `${scaled.comp.ratio.toFixed(1)} : 1`, color: "var(--violet)" },
+        { label: "FX", value: `Rev ${scaled.fx.reverbMix.toFixed(0)}%`, color: "var(--pink)" },
+        { label: "Output", value: profile.label, color: "var(--cyan)" }
+      ];
+      const width = isMobile ? 360 : 880;
+      const height = isMobile ? 520 : 190;
+      const nodeWidth = isMobile ? 220 : 132;
+      const nodeHeight = 62;
+      const positions = nodes.map((node, index) => isMobile
+        ? { x: 70, y: 24 + index * 96 }
+        : { x: 24 + index * 178, y: 52 }
+      );
+      const connectors = positions.slice(0, -1).map((position, index) => {
+        const next = positions[index + 1];
+        const startX = isMobile ? position.x + nodeWidth / 2 : position.x + nodeWidth;
+        const startY = isMobile ? position.y + nodeHeight : position.y + nodeHeight / 2;
+        const endX = isMobile ? next.x + nodeWidth / 2 : next.x;
+        const endY = isMobile ? next.y : next.y + nodeHeight / 2;
+        const path = `M ${startX} ${startY} L ${endX} ${endY}`;
+
+        return `
+          <path d="${path}" stroke="rgba(184,198,240,0.28)" stroke-width="2" fill="none" stroke-linecap="round" />
+          <circle class="flow-dot" r="4" fill="var(--cyan)" style="offset-path: path('${path}'); animation-delay: ${index * 0.2}s; filter: drop-shadow(0 0 8px var(--cyan));" />
+        `;
+      }).join("");
+      const nodeMarkup = nodes.map((node, index) => {
+        const position = positions[index];
+
+        return `
+          <g>
+            <rect x="${position.x}" y="${position.y}" width="${nodeWidth}" height="${nodeHeight}" rx="16" fill="rgba(8,12,27,0.88)" stroke="${node.color}" stroke-width="1.5" />
+            <text x="${position.x + nodeWidth / 2}" y="${position.y + 26}" text-anchor="middle" fill="${node.color}" font-size="13" font-weight="800">${node.label}</text>
+            <text x="${position.x + nodeWidth / 2}" y="${position.y + 45}" text-anchor="middle" fill="var(--muted)" font-size="11">${node.value}</text>
+          </g>
+        `;
+      }).join("");
+
+      signalChain.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Animated signal chain from input through EQ, compressor, effects, and output">
+          ${connectors}
+          ${nodeMarkup}
+        </svg>
+      `;
+      signalChain.hidden = false;
+    }
+
     function buildSettingsText() {
       const sections = [
         `Generated Chain`,
@@ -1702,6 +1934,173 @@ function scaleProfile(profile, intensity) {
       window.setTimeout(() => {
         copySettingsBtn.textContent = originalLabel;
       }, 1500);
+    }
+
+    function showAiDescription(description) {
+      if (!description) return;
+
+      aiDescriptionBox.textContent = description;
+      aiDescriptionBox.hidden = false;
+
+      window.setTimeout(() => {
+        aiDescriptionBox.hidden = true;
+      }, 6000);
+    }
+
+    function parseAiInterpretation(data) {
+      const content = data?.choices?.[0]?.message?.content;
+      if (typeof content === "string") return JSON.parse(content);
+      return data;
+    }
+
+    function fallbackAiInterpret(originalLabel) {
+      aiInterpretBtn.innerHTML = "AI unavailable — using smart match";
+      generateChain();
+
+      window.setTimeout(() => {
+        aiInterpretBtn.innerHTML = originalLabel;
+        aiInterpretBtn.disabled = false;
+      }, 2000);
+    }
+
+    async function interpretStyleWithAi() {
+      const originalLabel = aiInterpretBtn.innerHTML;
+      const style = styleInput.value.trim();
+
+      if (!style || WORKER_URL === "https://your-worker.workers.dev") {
+        fallbackAiInterpret(originalLabel);
+        return;
+      }
+
+      aiInterpretBtn.innerHTML = `<span class="pulse-dot"></span>Analyzing...`;
+      aiInterpretBtn.disabled = true;
+
+      try {
+        const response = await fetch(WORKER_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ style })
+        });
+
+        if (!response.ok) throw new Error("AI request failed");
+
+        const result = parseAiInterpretation(await response.json());
+        const presetKey = aiPresetKeyMap[result.presetKey];
+        const preset = vocalPresets[presetKey];
+
+        if (!preset) throw new Error("Unknown AI preset");
+
+        const intensity = Math.min(10, Math.max(1, Number(result.intensity) || preset.recommendedIntensity));
+        applyPreset(preset.text, intensity);
+        showAiDescription(result.description);
+        generateChain();
+        aiInterpretBtn.innerHTML = originalLabel;
+        aiInterpretBtn.disabled = false;
+      } catch (error) {
+        fallbackAiInterpret(originalLabel);
+      }
+    }
+
+    async function shareChain() {
+      const state = {
+        style: styleInput.value.trim() || "modern vocal",
+        daw: dawSelect.value,
+        intensity: Number(intensityRange.value)
+      };
+      const originalLabel = shareChainBtn.textContent;
+
+      window.location.hash = btoa(JSON.stringify(state));
+
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        shareChainBtn.textContent = "Link Copied!";
+      } catch (error) {
+        shareChainBtn.textContent = "Copy Failed";
+      }
+
+      window.setTimeout(() => {
+        shareChainBtn.textContent = originalLabel;
+      }, 1500);
+    }
+
+    function loadSharedChainFromHash() {
+      if (!window.location.hash) return;
+
+      try {
+        const state = JSON.parse(atob(window.location.hash.slice(1)));
+        if (!state || typeof state !== "object") return;
+
+        if (typeof state.style === "string") styleInput.value = state.style;
+        if (typeof state.daw === "string") dawSelect.value = state.daw;
+        if (typeof state.intensity !== "undefined") intensityRange.value = state.intensity;
+
+        styleInput.dispatchEvent(new Event("input", { bubbles: true }));
+        updateIntensityLabel();
+        generateChain();
+      } catch (error) {}
+    }
+
+    function getSavedChains() {
+      try {
+        return JSON.parse(localStorage.getItem("vocalchain_history")) || [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function setSavedChains(history) {
+      localStorage.setItem("vocalchain_history", JSON.stringify(history.slice(0, 10)));
+    }
+
+    function renderSavedChains() {
+      const history = getSavedChains();
+
+      if (!history.length) {
+        savedChainsList.innerHTML = `<div class="setting-line"><strong>History</strong><span>No saved chains yet.</span></div>`;
+        return;
+      }
+
+      savedChainsList.innerHTML = history.map((entry, index) => `
+        <button class="utility-btn" type="button" data-history-index="${index}">
+          ${formatStyleDirection(entry.style)} | ${new Date(entry.timestamp).toLocaleString()}
+        </button>
+      `).join("");
+    }
+
+    function saveCurrentChain() {
+      const history = getSavedChains();
+      const entry = {
+        style: styleInput.value.trim() || "modern vocal",
+        daw: dawSelect.value,
+        intensity: Number(intensityRange.value),
+        timestamp: new Date().toISOString(),
+        settingsText: buildSettingsText()
+      };
+
+      setSavedChains([entry, ...history]);
+      renderSavedChains();
+      saveChainBtn.textContent = "Saved!";
+
+      window.setTimeout(() => {
+        saveChainBtn.textContent = "Save This Chain";
+      }, 1500);
+    }
+
+    function loadSavedChain(index) {
+      const entry = getSavedChains()[index];
+      if (!entry) return;
+
+      styleInput.value = entry.style;
+      dawSelect.value = entry.daw;
+      intensityRange.value = entry.intensity;
+      styleInput.dispatchEvent(new Event("input", { bubbles: true }));
+      updateIntensityLabel();
+      generateChain();
+    }
+
+    function clearSavedChains() {
+      localStorage.removeItem("vocalchain_history");
+      renderSavedChains();
     }
 
     function tryAnotherVibe(mode) {
@@ -1776,6 +2175,7 @@ function scaleProfile(profile, intensity) {
         { label: "De-Esser", value: `${(scaled.eq.deEss.freq / 1000).toFixed(1)} kHz, ${scaled.eq.deEss.amount.toFixed(1)} dB` }
       ]);
       updateEqVisualizer(scaled.eq);
+      renderSignalChain(profile, scaled);
 
       compPlugin.textContent = plugins.comp;
       renderSettingLines(compSettings, [
@@ -1807,6 +2207,8 @@ function scaleProfile(profile, intensity) {
       resultsBadge.textContent = `${profile.label} chain ready`;
       resultHelper.hidden = false;
       copySettingsBtn.hidden = false;
+      saveChainBtn.hidden = false;
+      shareChainBtn.hidden = false;
       emptyState.style.display = "none";
       resultContent.classList.remove("show");
       void resultContent.offsetWidth;
@@ -1815,18 +2217,25 @@ function scaleProfile(profile, intensity) {
 
     intensityRange.addEventListener("input", updateIntensityLabel);
     styleInput.addEventListener("input", updateMiniDashboard);
+    aiInterpretBtn.addEventListener("click", interpretStyleWithAi);
     generateBtn.addEventListener("click", generateChain);
     copySettingsBtn.addEventListener("click", copySettings);
+    saveChainBtn.addEventListener("click", saveCurrentChain);
+    shareChainBtn.addEventListener("click", shareChain);
+    savedChainsList.addEventListener("click", event => {
+      const button = event.target.closest("[data-history-index]");
+      if (!button) return;
+      loadSavedChain(Number(button.dataset.historyIndex));
+    });
+    clearHistoryBtn.addEventListener("click", clearSavedChains);
     moreAggressiveBtn.addEventListener("click", () => tryAnotherVibe("aggressive"));
     softerBtn.addEventListener("click", () => tryAnotherVibe("softer"));
     moreSpaceBtn.addEventListener("click", () => tryAnotherVibe("space"));
 
     buildHeroMeter();
     updateIntensityLabel();
+    renderSavedChains();
+    loadSharedChainFromHash();
   </script>
-<footer style="text-align:center; margin-top:40px; opacity:0.6; font-size:12px;">
-  © 2026 Syzygy Entertainment. All rights reserved. <br>
-  A proprietary tool developed by Syzygy Entertainment.
-</footer>
 </body>
 </html>
