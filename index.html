@@ -98,6 +98,29 @@
       to { offset-distance: 100%; opacity: 0.25; }
     }
 
+    .back-to-syzygy {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 1000;
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 7px 14px;
+      border: 1px solid var(--line);
+      border-radius: 99px;
+      background: rgba(4,5,13,0.8);
+      backdrop-filter: blur(10px);
+      transition: color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .back-to-syzygy:hover {
+      color: var(--cyan);
+      border-color: var(--cyan);
+    }
+
     .noise {
       position: fixed;
       inset: 0;
@@ -331,17 +354,6 @@
 
     .ai-style-row .input-shell {
       flex: 1;
-    }
-
-    .ai-description-box {
-      padding: 11px 13px;
-      border: 1px solid var(--cyan);
-      border-radius: 16px;
-      background: var(--panel);
-      color: var(--text);
-      font-size: 0.86rem;
-      line-height: 1.55;
-      box-shadow: var(--glow);
     }
 
     input[type="text"],
@@ -1031,6 +1043,9 @@ select option {
   </style>
 </head>
 <body>
+  <a href="https://syzygyent.com" class="back-to-syzygy" target="_blank" rel="noopener noreferrer">
+    ← Syzygy Entertainment
+  </a>
   <div class="noise" aria-hidden="true"></div>
 
   <main class="app-shell">
@@ -1073,9 +1088,8 @@ select option {
               <div class="input-shell">
                 <input id="styleInput" type="text" placeholder="Describe your vocal style..." value="aggressive rap" />
               </div>
-              <button class="utility-btn" id="aiInterpretBtn" type="button"><span class="pulse-dot"></span>Interpret with AI</button>
+              <button class="utility-btn" id="aiInterpretBtn" type="button">Interpret Style</button>
             </div>
-            <div class="ai-description-box" id="aiDescriptionBox" hidden></div>
           </div>
 
           <div class="field">
@@ -1247,7 +1261,6 @@ select option {
     const WORKER_URL = "https://your-worker.workers.dev";
     const styleInput = document.getElementById("styleInput");
     const aiInterpretBtn = document.getElementById("aiInterpretBtn");
-    const aiDescriptionBox = document.getElementById("aiDescriptionBox");
     const dawSelect = document.getElementById("dawSelect");
     const intensityRange = document.getElementById("intensityRange");
     const intensityControl = document.getElementById("intensityRange") || intensityRange;
@@ -1936,43 +1949,31 @@ function scaleProfile(profile, intensity) {
       }, 1500);
     }
 
-    function showAiDescription(description) {
-      if (!description) return;
-
-      aiDescriptionBox.textContent = description;
-      aiDescriptionBox.hidden = false;
-
-      window.setTimeout(() => {
-        aiDescriptionBox.hidden = true;
-      }, 6000);
-    }
-
     function parseAiInterpretation(data) {
       const content = data?.choices?.[0]?.message?.content;
       if (typeof content === "string") return JSON.parse(content);
       return data;
     }
 
-    function fallbackAiInterpret(originalLabel) {
-      aiInterpretBtn.innerHTML = "AI unavailable — using smart match";
+    function fallbackAiInterpret() {
+      aiInterpretBtn.textContent = "Interpret Style";
+      aiInterpretBtn.disabled = false;
       generateChain();
-
-      window.setTimeout(() => {
-        aiInterpretBtn.innerHTML = originalLabel;
-        aiInterpretBtn.disabled = false;
-      }, 2000);
     }
 
     async function interpretStyleWithAi() {
-      const originalLabel = aiInterpretBtn.innerHTML;
       const style = styleInput.value.trim();
 
       if (!style || WORKER_URL === "https://your-worker.workers.dev") {
-        fallbackAiInterpret(originalLabel);
+        aiInterpretBtn.textContent = "Analyzing...";
+        aiInterpretBtn.disabled = true;
+        window.setTimeout(() => {
+          fallbackAiInterpret();
+        }, 1500);
         return;
       }
 
-      aiInterpretBtn.innerHTML = `<span class="pulse-dot"></span>Analyzing...`;
+      aiInterpretBtn.textContent = "Analyzing...";
       aiInterpretBtn.disabled = true;
 
       try {
@@ -1991,13 +1992,16 @@ function scaleProfile(profile, intensity) {
         if (!preset) throw new Error("Unknown AI preset");
 
         const intensity = Math.min(10, Math.max(1, Number(result.intensity) || preset.recommendedIntensity));
-        applyPreset(preset.text, intensity);
-        showAiDescription(result.description);
-        generateChain();
-        aiInterpretBtn.innerHTML = originalLabel;
-        aiInterpretBtn.disabled = false;
+        window.setTimeout(() => {
+          applyPreset(preset.text, intensity);
+          generateChain();
+          aiInterpretBtn.textContent = "Interpret Style";
+          aiInterpretBtn.disabled = false;
+        }, 1500);
       } catch (error) {
-        fallbackAiInterpret(originalLabel);
+        window.setTimeout(() => {
+          fallbackAiInterpret();
+        }, 1500);
       }
     }
 
