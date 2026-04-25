@@ -1,0 +1,9 @@
+name = "deckar8t-site"
+main = "worker.js"
+compatibility_date = "2026-04-25"
+workers_dev = true
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
