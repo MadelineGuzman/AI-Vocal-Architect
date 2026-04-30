@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzA0MDUwZCIvPgogIDxwYXRoIGZpbGw9IiMwMGQ0ZmYiIGQ9Ik0xNiA2YTQgNCAwIDAgMC00IDR2N2E0IDQgMCAxIDAgOCAwdi03YTQgNCAwIDAgMC00LTRabS03IDEwaDJhNSA1IDAgMCAwIDEwIDBoMmE3IDcgMCAwIDEtNiA2LjkyVjI2aDR2MkgxMXYtMmg0di0zLjA4QTcgNyAwIDAgMSA5IDE2WiIvPgo8L3N2Zz4=">
   <meta name="description" content="Vocal Architect by Syzygy Entertainment generates polished vocal chains from your style and production goals." />
   <meta property="og:title" content="Vocal Architect | Syzygy Entertainment" />
   <title>Vocal Architect | Syzygy Entertainment</title>
@@ -661,6 +662,39 @@ select option {
       margin-bottom: 14px;
     }
 
+    .playback-status {
+      margin: -2px 0 14px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(10, 14, 31, 0.9), rgba(7, 10, 23, 0.94));
+      border: 1px solid rgba(141, 164, 255, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .playback-status-label {
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .playback-status-track {
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(184, 198, 240, 0.12);
+      overflow: hidden;
+    }
+
+    .playback-status-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: #00d4ff;
+      box-shadow: 0 0 12px rgba(0, 212, 255, 0.28);
+      transition: width 120ms linear;
+    }
+
     .utility-btn {
       padding: 10px 14px;
       border: 1px solid rgba(141, 164, 255, 0.18);
@@ -852,6 +886,46 @@ select option {
       height: auto;
     }
 
+    .waveform-compare {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(10, 14, 31, 0.9), rgba(7, 10, 23, 0.92));
+      border: 1px solid rgba(141, 164, 255, 0.12);
+    }
+
+    .waveform-panel {
+      display: grid;
+      gap: 8px;
+      justify-items: center;
+    }
+
+    .waveform-svg {
+      display: block;
+      width: 180px;
+      height: 60px;
+      border-radius: 14px;
+      background: rgba(8, 12, 27, 0.88);
+      border: 1px solid rgba(141, 164, 255, 0.1);
+    }
+
+    .waveform-label {
+      color: var(--muted);
+      font-size: 0.74rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .waveform-arrow {
+      color: var(--muted);
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
     .flow-dot {
       animation: flowDot 1.8s linear infinite;
       offset-rotate: 0deg;
@@ -932,45 +1006,14 @@ select option {
 
     .eq-visualizer {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-      align-items: end;
+      place-items: center;
       min-height: 96px;
       margin: 6px 0 14px;
-      padding: 16px 14px 12px;
+      padding: 12px;
       border-radius: 18px;
       background: linear-gradient(180deg, rgba(8, 12, 27, 0.88), rgba(14, 19, 39, 0.82));
       border: 1px solid rgba(141, 164, 255, 0.12);
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
-    }
-
-    .eq-band {
-      display: grid;
-      justify-items: center;
-      gap: 8px;
-    }
-
-    .eq-bar {
-      width: 100%;
-      max-width: 72px;
-      min-height: 16px;
-      border-radius: 999px 999px 12px 12px;
-      background: linear-gradient(180deg, rgba(90,216,255,0.9), rgba(108,124,255,0.72), rgba(227,93,255,0.6));
-      box-shadow: 0 0 16px rgba(90, 216, 255, 0.18), 0 0 22px rgba(143, 98, 255, 0.12);
-      transition: height 240ms var(--ease), transform 240ms var(--ease), opacity 240ms var(--ease);
-      transform-origin: bottom center;
-    }
-
-    .eq-band.cut .eq-bar {
-      background: linear-gradient(180deg, rgba(90,216,255,0.45), rgba(108,124,255,0.38));
-      opacity: 0.82;
-    }
-
-    .eq-band-label {
-      font-size: 0.72rem;
-      color: #b8c6ff;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
     }
 
     .setting-line {
@@ -1065,10 +1108,9 @@ select option {
     <section class="app">
       <div class="panel controls">
         <div class="eyebrow">AI Vocal Architect</div>
-        <h1><span class="brand">Vocal Architect</span></h1>
+        <h1><span class="brand">Dial in your vocal chain in 30 seconds</span></h1>
         <div class="brand-mark">✦ A Syzygy Entertainment Tool ✦</div>
-        <p class="subtitle">Vocal Architect isn't a plugin. It's a blueprint. Built by a real engineer, for engineers who are just getting started. Describe your style and get a professional signal chain in seconds.</p>
-        <p style="color: var(--gold); font-style: italic; margin-top: 10px; font-size: 0.9rem;">The Blueprint. Take it and make it your own.</p>
+        <p class="subtitle">Pick a style, pick your DAW — get exact plugin settings ready to use.</p>
 
         <div class="hero-meter" aria-hidden="true">
           <div class="hero-meter-label">Signal Energy</div>
@@ -1117,6 +1159,7 @@ select option {
                 <option>Logic Pro</option>
                 <option>Pro Tools</option>
                 <option>Ableton</option>
+                <option>REAPER</option>
                 <option>Other</option>
               </select>
             </div>
@@ -1148,19 +1191,6 @@ select option {
             </div>
           </div>
 
-          <div class="field">
-            <div class="toggle">
-              <div class="toggle-text">
-                <span>Learn Mode (Why this works)</span>
-                <span class="field-hint">Adds quick engineering notes under each section</span>
-              </div>
-              <label class="switch" aria-label="Learn Mode Toggle">
-                <input id="learnToggle" type="checkbox" />
-                <span class="slider-ui"></span>
-              </label>
-            </div>
-          </div>
-
           <button class="generate-btn" id="generateBtn" type="button"><span class="pulse-dot"></span>Generate Mix Chain</button>
         </div>
       </div>
@@ -1189,8 +1219,17 @@ select option {
           <div class="result-content" id="resultContent" aria-live="polite" aria-atomic="true">
             <div class="result-actions">
               <button class="utility-btn" id="copySettingsBtn" type="button" hidden>Copy Settings</button>
+              <button class="utility-btn" id="downloadSettingsBtn" type="button" hidden>Download .txt</button>
               <button class="utility-btn" id="saveChainBtn" type="button" hidden>Save This Chain</button>
-              <button class="utility-btn" id="shareChainBtn" type="button" hidden>Share Chain</button>
+              <button class="utility-btn" id="previewChainBtn" type="button" hidden>Preview Chain</button>
+              <span class="field-hint" id="previewChainError" hidden>Sample not found</span>
+            </div>
+
+            <div class="playback-status" id="playbackStatus" hidden>
+              <div class="playback-status-label" id="playbackStatusLabel">▶ DRY</div>
+              <div class="playback-status-track" aria-hidden="true">
+                <div class="playback-status-fill" id="playbackStatusFill"></div>
+              </div>
             </div>
 
             <div class="vibe-box">
@@ -1205,26 +1244,25 @@ select option {
 
             <div class="result-helper" id="resultHelper" hidden>Use these settings in your DAW to recreate this vocal sound.</div>
 
+            <div class="waveform-compare" id="waveformCompare" hidden>
+              <div class="waveform-panel">
+                <svg class="waveform-svg" id="dryWaveform" viewBox="0 0 180 60" aria-label="Dry waveform preview"></svg>
+                <div class="waveform-label">DRY</div>
+              </div>
+              <div class="waveform-arrow" aria-hidden="true">→</div>
+              <div class="waveform-panel">
+                <svg class="waveform-svg" id="processedWaveform" viewBox="0 0 180 60" aria-label="Processed waveform preview"></svg>
+                <div class="waveform-label">PROCESSED</div>
+              </div>
+            </div>
+
             <div class="signal-chain" id="signalChain" hidden></div>
 
             <div class="chain-grid">
               <div class="card">
                 <h3>EQ Section</h3>
                 <div class="plugin-name" id="eqPlugin"></div>
-                <div class="eq-visualizer" id="eqVisualizer">
-                  <div class="eq-band cut">
-                    <div class="eq-bar" id="eqLowBar"></div>
-                    <div class="eq-band-label">Low Cut</div>
-                  </div>
-                  <div class="eq-band cut">
-                    <div class="eq-bar" id="eqMidBar"></div>
-                    <div class="eq-band-label">Mid Dip</div>
-                  </div>
-                  <div class="eq-band">
-                    <div class="eq-bar" id="eqHighBar"></div>
-                    <div class="eq-band-label">Air Boost</div>
-                  </div>
-                </div>
+                <div class="eq-visualizer" id="eqVisualizer"></div>
                 <div class="settings" id="eqSettings"></div>
                 <div class="learn" id="eqLearn" hidden></div>
               </div>
@@ -1243,6 +1281,8 @@ select option {
                 <div class="learn" id="fxLearn" hidden></div>
               </div>
             </div>
+
+            <div class="learn" id="reaperNote" hidden></div>
 
             <div class="vibe-actions">
               <div class="vibe-actions-title">Try another vibe</div>
@@ -1279,7 +1319,6 @@ select option {
     const intensityRange = document.getElementById("intensityRange");
     const intensityControl = document.getElementById("intensityRange") || intensityRange;
     const intensityValue = document.getElementById("intensityValue");
-    const learnToggle = document.getElementById("learnToggle");
     const generateBtn = document.getElementById("generateBtn");
     const presetGrid = document.getElementById("presetGrid");
     const heroMeter = document.getElementById("heroMeter");
@@ -1287,10 +1326,19 @@ select option {
     const resultContent = document.getElementById("resultContent");
     const resultsBadge = document.getElementById("resultsBadge");
     const copySettingsBtn = document.getElementById("copySettingsBtn");
+    const downloadSettingsBtn = document.getElementById("downloadSettingsBtn");
     const saveChainBtn = document.getElementById("saveChainBtn");
     const shareChainBtn = document.getElementById("shareChainBtn");
+    const previewChainBtn = document.getElementById("previewChainBtn");
+    const previewChainError = document.getElementById("previewChainError");
+    const playbackStatus = document.getElementById("playbackStatus");
+    const playbackStatusLabel = document.getElementById("playbackStatusLabel");
+    const playbackStatusFill = document.getElementById("playbackStatusFill");
     const vibeText = document.getElementById("vibeText");
     const resultHelper = document.getElementById("resultHelper");
+    const waveformCompare = document.getElementById("waveformCompare");
+    const dryWaveform = document.getElementById("dryWaveform");
+    const processedWaveform = document.getElementById("processedWaveform");
     const signalChain = document.getElementById("signalChain");
     const metaStyle = document.getElementById("metaStyle");
     const metaDaw = document.getElementById("metaDaw");
@@ -1304,17 +1352,18 @@ select option {
     const fxPlugin = document.getElementById("fxPlugin");
     const fxSettings = document.getElementById("fxSettings");
     const fxLearn = document.getElementById("fxLearn");
+    const reaperNote = document.getElementById("reaperNote");
     const miniProcessing = document.getElementById("miniProcessing");
     const miniSpace = document.getElementById("miniSpace");
     const miniTone = document.getElementById("miniTone");
-    const eqLowBar = document.getElementById("eqLowBar");
-    const eqMidBar = document.getElementById("eqMidBar");
-    const eqHighBar = document.getElementById("eqHighBar");
     const moreAggressiveBtn = document.getElementById("moreAggressiveBtn");
     const softerBtn = document.getElementById("softerBtn");
     const moreSpaceBtn = document.getElementById("moreSpaceBtn");
     const savedChainsList = document.getElementById("savedChainsList");
     const clearHistoryBtn = document.getElementById("clearHistoryBtn");
+    let latestRenderedChain = null;
+    let previewSampleBuffer = null;
+    let playbackStatusTimer = null;
 
 const vocalPresets = {
   cleanNatural: {
@@ -1797,6 +1846,11 @@ function scaleProfile(profile, intensity) {
       "Logic Pro": { eq: "Channel EQ", comp: "Compressor", fx: "ChromaVerb + Stereo Delay + Vocal Transformer" },
       "Pro Tools": { eq: "EQ III 7-Band", comp: "Dyn3 Compressor/Limiter", fx: "D-Verb + Mod Delay III + Pitch II" },
       "Ableton": { eq: "EQ Eight", comp: "Compressor", fx: "Hybrid Reverb + Echo + Shifter" },
+      "REAPER": {
+        eq: "ReaEQ + ReaFIR (Dynamic)",
+        comp: "ReaComp",
+        fx: "ReaVerb + ReaDelay + ReaPitch + JS: LOSER/Saturation"
+      },
       "Other": { eq: "FabFilter Pro-Q Style EQ", comp: "1176 / Digital Vocal Compressor", fx: "Plate Reverb + Stereo Delay + Pitch Shifter" }
     };
 
@@ -1860,17 +1914,217 @@ function scaleProfile(profile, intensity) {
         .join("");
     }
 
+    function noteValueToMs(noteValue) {
+      const beatMs = 500;
+      const map = {
+        "1/16": beatMs / 4,
+        "1/8": beatMs / 2,
+        "1/8 dotted": beatMs * 0.75,
+        "1/4": beatMs,
+        "1/4 dotted": beatMs * 1.5,
+        "1/2": beatMs * 2
+      };
+      return Math.round(map[noteValue] || beatMs / 2);
+    }
+
+    function reaperDelayFeedback(intensity, delayMix) {
+      return Math.round(clamp((delayMix * 1.2) + (intensity * 2.5), 18, 52));
+    }
+
+    function setPlaybackStatus(state, progress) {
+      if (!playbackStatus || !playbackStatusLabel || !playbackStatusFill) return;
+      playbackStatus.hidden = false;
+      playbackStatusLabel.textContent = state;
+      playbackStatusFill.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+    }
+
+    function hidePlaybackStatus() {
+      if (!playbackStatus || !playbackStatusFill) return;
+      playbackStatus.hidden = true;
+      playbackStatusFill.style.width = "0%";
+    }
+
     function updateEqVisualizer(eq) {
-      if (!eqLowBar || !eqMidBar || !eqHighBar) return;
+      if (!eqVisualizer || !eq?.moves?.length) return;
 
-      const lowAmount = Math.min(88, Math.max(28, (eq.hpf - 40) * 0.6));
-      const midAmount = Math.min(84, Math.max(18, Math.abs(eq.moves[0].scaledGain) * 18));
-      const highAmount = Math.min(92, Math.max(24, Math.abs(eq.moves[2].scaledGain) * 16));
+      const width = 300;
+      const height = 80;
+      const baseline = 44;
+      const points = Array.from({ length: 13 }, (_, index) => {
+        const t = index / 12;
+        const x = 16 + t * (width - 32);
+        let y = baseline;
 
-      eqLowBar.style.height = `${lowAmount}px`;
-      eqMidBar.style.height = `${midAmount}px`;
-      eqHighBar.style.height = `${highAmount}px`;
-      eqHighBar.style.transform = highAmount > 68 ? "scaleY(1.06)" : "scaleY(1)";
+        y += Math.max(0, (eq.hpf - 60) / 20) * Math.max(0, 1 - t / 0.18) * 18;
+        y += Math.max(0, Math.abs(eq.moves[0].scaledGain)) * (1 - Math.abs(t - 0.28) / 0.18) * 3.2;
+        y -= Math.max(0, eq.moves[1].scaledGain) * (1 - Math.abs(t - 0.68) / 0.16) * 4.2;
+        y -= Math.max(0, eq.moves[2].scaledGain) * Math.max(0, (t - 0.78) / 0.22) * 4.5;
+
+        return [x, Math.max(12, Math.min(height - 12, y))];
+      });
+
+      const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point[0].toFixed(1)} ${point[1].toFixed(1)}`).join(" ");
+
+      eqVisualizer.innerHTML = `
+        <svg width="300" height="80" viewBox="0 0 300 80" role="img" aria-label="EQ frequency response">
+          <rect x="0" y="0" width="300" height="80" rx="14" fill="rgba(8, 12, 27, 0.01)"></rect>
+          <line x1="16" y1="${baseline}" x2="284" y2="${baseline}" stroke="rgba(184,198,240,0.18)" stroke-width="1"></line>
+          <path d="${path}" fill="none" stroke="#00d4ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      `;
+    }
+
+    async function previewChain() {
+      if (!latestRenderedChain) return;
+
+      const originalLabel = previewChainBtn.textContent;
+      previewChainBtn.textContent = "▶ DRY";
+      previewChainBtn.disabled = true;
+      previewChainError.hidden = true;
+      if (playbackStatusTimer) {
+        window.clearInterval(playbackStatusTimer);
+        playbackStatusTimer = null;
+      }
+
+      try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (!previewSampleBuffer) {
+          const response = await fetch("./vocal_dry.wav");
+          if (!response.ok) throw new Error("Sample not found");
+          const buffer = await response.arrayBuffer();
+          previewSampleBuffer = await audioContext.decodeAudioData(buffer.slice(0));
+        }
+
+        const buffer = previewSampleBuffer;
+        const now = audioContext.currentTime + 0.05;
+        const clipDuration = buffer.duration;
+        const totalDuration = (clipDuration * 2) + 0.5;
+        const wetStartDelay = clipDuration + 0.5;
+        const startMs = performance.now();
+
+        setPlaybackStatus("▶ DRY", 0);
+        playbackStatusTimer = window.setInterval(() => {
+          const elapsed = (performance.now() - startMs) / 1000;
+          const progress = (elapsed / totalDuration) * 100;
+          if (elapsed >= wetStartDelay) {
+            setPlaybackStatus("▶ WET", progress);
+          } else {
+            setPlaybackStatus("▶ DRY", progress);
+          }
+          if (elapsed >= totalDuration && playbackStatusTimer) {
+            window.clearInterval(playbackStatusTimer);
+            playbackStatusTimer = null;
+          }
+        }, 60);
+
+        const drySource = audioContext.createBufferSource();
+        drySource.buffer = buffer;
+        drySource.connect(audioContext.destination);
+
+        const wetSource = audioContext.createBufferSource();
+        wetSource.buffer = buffer;
+
+        const hpf = audioContext.createBiquadFilter();
+        hpf.type = "highpass";
+        hpf.frequency.setValueAtTime(latestRenderedChain.eq.hpf, now);
+
+        const presence = audioContext.createBiquadFilter();
+        presence.type = "peaking";
+        presence.frequency.setValueAtTime(latestRenderedChain.eq.moves[1].freq, now);
+        presence.Q.setValueAtTime(latestRenderedChain.eq.moves[1].q || 0.9, now);
+        presence.gain.setValueAtTime(latestRenderedChain.eq.moves[1].scaledGain, now);
+
+        const compressor = audioContext.createDynamicsCompressor();
+        compressor.threshold.setValueAtTime(latestRenderedChain.comp.threshold, now);
+        compressor.ratio.setValueAtTime(latestRenderedChain.comp.ratio, now);
+        compressor.attack.setValueAtTime(Math.max(0.001, latestRenderedChain.comp.attack / 1000), now);
+        compressor.release.setValueAtTime(Math.max(0.05, latestRenderedChain.comp.release / 1000), now);
+
+        wetSource.connect(hpf);
+        hpf.connect(presence);
+        presence.connect(compressor);
+        compressor.connect(audioContext.destination);
+
+        drySource.start(now);
+        wetSource.start(now + clipDuration + 0.5);
+
+        window.setTimeout(() => {
+          previewChainBtn.textContent = "▶ WET";
+          setPlaybackStatus("▶ WET", (wetStartDelay / totalDuration) * 100);
+        }, Math.max(0, wetStartDelay * 1000));
+
+        wetSource.onended = () => {
+          window.setTimeout(() => {
+            if (playbackStatusTimer) {
+              window.clearInterval(playbackStatusTimer);
+              playbackStatusTimer = null;
+            }
+            hidePlaybackStatus();
+            previewChainBtn.textContent = originalLabel;
+            previewChainBtn.disabled = false;
+            audioContext.close();
+          }, 50);
+        };
+      } catch (error) {
+        if (playbackStatusTimer) {
+          window.clearInterval(playbackStatusTimer);
+          playbackStatusTimer = null;
+        }
+        hidePlaybackStatus();
+        previewChainError.hidden = false;
+        previewChainBtn.textContent = originalLabel;
+        previewChainBtn.disabled = false;
+      }
+    }
+
+    function buildWaveformPath(points) {
+      return points.map((point, index) => `${index === 0 ? "M" : "L"} ${point[0]} ${point[1]}`).join(" ");
+    }
+
+    function renderWaveformComparison(chain, intensity) {
+      if (!waveformCompare || !dryWaveform || !processedWaveform) return;
+
+      const dryPoints = [
+        [8, 32], [18, 16], [28, 44], [38, 10], [48, 36], [58, 14], [68, 48], [78, 12],
+        [88, 40], [98, 18], [108, 46], [118, 14], [128, 34], [138, 20], [148, 42], [158, 16], [172, 31]
+      ];
+
+      const ratio = chain.comp.ratio;
+      const reverbMix = chain.fx.reverbMix;
+      const tightness = intensity > 7 ? 0.72 : intensity < 4 ? 1.12 : 0.92;
+      const uniformity = ratio > 4 ? 0.62 : 0.88;
+      const tailAmount = reverbMix > 40 ? 1 : 0;
+      const baseHeights = [14, 26, 12, 24, 13, 22, 14, 20, 15, 18, 14, 17, 15, 16];
+      const processedPoints = baseHeights.map((height, index) => {
+        const x = 10 + index * 11.5;
+        const amplitude = height * tightness * uniformity + (index % 2 === 0 ? 2 : -1);
+        const y = 30 - amplitude;
+        return [Number(x.toFixed(1)), Number(y.toFixed(1))];
+      });
+
+      const processedMirror = processedPoints.map(([x, y], index) => [x, Number((60 - y + (index % 3 - 1)).toFixed(1))]);
+      const processedFull = [];
+      for (let i = 0; i < processedPoints.length; i++) {
+        processedFull.push(processedPoints[i]);
+        processedFull.push(processedMirror[i]);
+      }
+      processedFull.sort((a, b) => a[0] - b[0]);
+
+      if (tailAmount) {
+        processedFull.push([166, 28], [172, 31], [176, 33]);
+      }
+
+      dryWaveform.innerHTML = `
+        <rect x="0" y="0" width="180" height="60" rx="14" fill="rgba(8, 12, 27, 0.88)"></rect>
+        <path d="${buildWaveformPath(dryPoints)}" fill="none" stroke="#00d4ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+      `;
+
+      processedWaveform.innerHTML = `
+        <rect x="0" y="0" width="180" height="60" rx="14" fill="rgba(8, 12, 27, 0.88)"></rect>
+        <path d="${buildWaveformPath(processedFull)}" fill="none" stroke="#00d4ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+      `;
+
+      waveformCompare.hidden = false;
     }
 
     function renderSignalChain(profile, scaled) {
@@ -1944,6 +2198,10 @@ function scaleProfile(profile, intensity) {
         ...Array.from(fxSettings.querySelectorAll(".setting-line")).map(line => line.textContent.replace(/\s+/g, " ").trim())
       ];
 
+      if (reaperNote && !reaperNote.hidden && reaperNote.textContent.trim()) {
+        sections.push(``, `REAPER Note`, reaperNote.textContent.trim());
+      }
+
       return sections.join("\n").trim();
     }
 
@@ -1961,6 +2219,76 @@ function scaleProfile(profile, intensity) {
       window.setTimeout(() => {
         copySettingsBtn.textContent = originalLabel;
       }, 1500);
+    }
+
+    function downloadSettings() {
+      const styleToken = (styleInput.value.trim() || "Style").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
+      const dawToken = dawSelect.value.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
+      const intensityToken = intensityRange.value;
+      const filename = `VocalChain_${styleToken}_${dawToken}_${intensityToken}.txt`;
+      const blob = new Blob([buildSettingsText()], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function getPresetRationale(presetKey, profile, scaled) {
+      const rationaleMap = {
+        cleanNatural: {
+          eq: `HPF at ${scaled.eq.hpf} Hz keeps the vocal clean without thinning it.`,
+          comp: `${scaled.comp.ratio.toFixed(1)}:1 keeps dynamics smooth and natural.`,
+          fx: `Light ambience adds polish without pushing the vocal backward.`
+        },
+        aggressiveRap: {
+          eq: `HPF at ${scaled.eq.hpf} Hz tightens the low end without losing chest weight.`,
+          comp: `${scaled.comp.ratio.toFixed(1)}:1 keeps the vocal locked, dense, and forward.`,
+          fx: `Short effects keep aggression intact while adding edge and width.`
+        },
+        choppedScrewed: {
+          eq: `Controlled mids keep the vocal heavy without turning muddy.`,
+          comp: `Slower compression preserves the dragged, syrupy movement.`,
+          fx: `Long dark space supports the slowed and warped atmosphere.`
+        },
+        autotuneVibe: {
+          eq: `Bright presence helps tuned phrases stay clear and glossy.`,
+          comp: `Steady control keeps melodic lines smooth and connected.`,
+          fx: `Delay and width create a modern, atmospheric lead sound.`
+        },
+        smoothRnB: {
+          eq: `Air and warmth keep the vocal intimate yet polished.`,
+          comp: `Gentle control preserves breath and emotional phrasing.`,
+          fx: `Lush space wraps the lead without losing closeness.`
+        },
+        gospelBigChoirLead: {
+          eq: `This shaping keeps the lead powerful while clearing low-mid buildup.`,
+          comp: `Moderate control preserves the swell of a choir-style performance.`,
+          fx: `Large hall depth places the voice in a bigger room.`
+        },
+        lofiBedroomPop: {
+          eq: `Rolled highs and fuller mids create a dusty cassette feel.`,
+          comp: `Light control keeps the take human and imperfect.`,
+          fx: `Short room space adds vibe without sounding too modern.`
+        },
+        drillDarkTrap: {
+          eq: `Aggressive filtering and presence help the vocal cut through dark 808s.`,
+          comp: `Hard fast compression keeps the delivery tight and menacing.`,
+          fx: `Dry dark effects keep the vocal tense and controlled.`
+        },
+        custom: {
+          eq: `These EQ moves shape clarity around the style you described.`,
+          comp: `Compression is tuned to steady the vocal without flattening it.`,
+          fx: `The space settings support the mood without crowding the lead.`
+        }
+      };
+
+      return rationaleMap[presetKey] || {
+        eq: `These EQ moves shape clarity around the style you described.`,
+        comp: `Compression is tuned to steady the vocal without flattening it.`,
+        fx: `The space settings support the mood without crowding the lead.`
+      };
     }
 
     function parseAiInterpretation(data) {
@@ -2025,9 +2353,12 @@ function scaleProfile(profile, intensity) {
         daw: dawSelect.value,
         intensity: Number(intensityRange.value)
       };
-      const originalLabel = shareChainBtn.textContent;
 
       window.location.hash = btoa(JSON.stringify(state));
+
+      if (!shareChainBtn || !navigator.clipboard) return;
+
+      const originalLabel = shareChainBtn.textContent;
 
       try {
         await navigator.clipboard.writeText(window.location.href);
@@ -2166,13 +2497,20 @@ function scaleProfile(profile, intensity) {
       const style = styleInput.value.trim() || "modern vocal";
       const daw = dawSelect.value;
       const intensity = Number(intensityRange.value);
-      const learnMode = learnToggle.checked;
       const profile = getProfile(style);
+      const presetKey = activePresetKey || Object.entries(vocalPresets).find(([, preset]) => preset.label === profile.label)?.[0] || "custom";
       const plugins = pluginMap[daw];
       const scaled = scaleProfile(profile, intensity);
       const fxStyle = fxFlavor(style, intensity);
+      const rationale = getPresetRationale(presetKey, profile, scaled);
       const toneMode = intensity >= 7 ? "Bold" : intensity <= 3 ? "Smooth" : "Balanced";
       const spaceMode = intensity >= 7 ? "Expanded" : intensity <= 3 ? "Tight" : "Focused";
+      latestRenderedChain = {
+        profile,
+        eq: scaled.eq,
+        comp: scaled.comp,
+        fx: scaled.fx
+      };
 
       vibeText.innerHTML = [
         `<strong>Profile</strong>: ${profile.label}`,
@@ -2185,14 +2523,25 @@ function scaleProfile(profile, intensity) {
       metaIntensity.textContent = `Intensity: ${intensity}/10`;
 
       eqPlugin.textContent = plugins.eq;
-      renderSettingLines(eqSettings, [
-        { label: "HPF", value: `${scaled.eq.hpf} Hz, ${scaled.eq.slope}` },
-        { label: "Low-Mid", value: `${scaled.eq.moves[0].freq} Hz, ${formatDb(scaled.eq.moves[0].scaledGain)}, Q ${scaled.eq.moves[0].q}` },
-        { label: "Presence", value: `${(scaled.eq.moves[1].freq / 1000).toFixed(1)} kHz, ${formatDb(scaled.eq.moves[1].scaledGain)}` },
-        { label: "Air", value: `${(scaled.eq.moves[2].freq / 1000).toFixed(1)} kHz, ${formatDb(scaled.eq.moves[2].scaledGain)}` },
-        { label: "De-Esser", value: `${(scaled.eq.deEss.freq / 1000).toFixed(1)} kHz, ${scaled.eq.deEss.amount.toFixed(1)} dB` }
-      ]);
+      if (daw === "REAPER") {
+        renderSettingLines(eqSettings, [
+          { label: "ReaEQ", value: `Band 1 HPF, ${scaled.eq.hpf} Hz, ${scaled.eq.slope}` },
+          { label: "Band 2", value: `${scaled.eq.moves[0].type} at ${scaled.eq.moves[0].freq} Hz, ${formatDb(scaled.eq.moves[0].scaledGain)}` },
+          { label: "Band 3", value: `${scaled.eq.moves[1].type} at ${(scaled.eq.moves[1].freq / 1000).toFixed(1)} kHz, ${formatDb(scaled.eq.moves[1].scaledGain)}` },
+          { label: "Band 4", value: `High shelf at ${(scaled.eq.moves[2].freq / 1000).toFixed(1)} kHz, ${formatDb(scaled.eq.moves[2].scaledGain)}` },
+          { label: "ReaFIR", value: `Dynamic mode, narrow cut at ${(scaled.eq.deEss.freq / 1000).toFixed(1)} kHz, ${scaled.eq.deEss.amount.toFixed(1)} dB target` }
+        ]);
+      } else {
+        renderSettingLines(eqSettings, [
+          { label: "HPF", value: `${scaled.eq.hpf} Hz, ${scaled.eq.slope}` },
+          { label: "Low-Mid", value: `${scaled.eq.moves[0].freq} Hz, ${formatDb(scaled.eq.moves[0].scaledGain)}, Q ${scaled.eq.moves[0].q}` },
+          { label: "Presence", value: `${(scaled.eq.moves[1].freq / 1000).toFixed(1)} kHz, ${formatDb(scaled.eq.moves[1].scaledGain)}` },
+          { label: "Air", value: `${(scaled.eq.moves[2].freq / 1000).toFixed(1)} kHz, ${formatDb(scaled.eq.moves[2].scaledGain)}` },
+          { label: "De-Esser", value: `${(scaled.eq.deEss.freq / 1000).toFixed(1)} kHz, ${scaled.eq.deEss.amount.toFixed(1)} dB` }
+        ]);
+      }
       updateEqVisualizer(scaled.eq);
+      renderWaveformComparison(latestRenderedChain, intensity);
       renderSignalChain(profile, scaled);
 
       compPlugin.textContent = plugins.comp;
@@ -2206,27 +2555,46 @@ function scaleProfile(profile, intensity) {
       ]);
 
       fxPlugin.textContent = plugins.fx;
-      renderSettingLines(fxSettings, [
-        { label: "Reverb", value: `${fxStyle.reverbType}, ${scaled.fx.reverbMix.toFixed(1)}%, ${scaled.fx.reverbDecay.toFixed(1)}s, Pre ${Math.round(18 + intensity * 3)} ms` },
-        { label: "Delay", value: `${fxStyle.delayType}, ${scaled.fx.delayMix.toFixed(1)}%, ${scaled.fx.delayTime}` },
-        { label: "Pitch", value: `${scaled.fx.pitchShift}` },
-        { label: "Stereo", value: `${scaled.fx.stereoWidth}${scaled.fx.retuneSpeed ? `, Retune ${scaled.fx.retuneSpeed} ms` : ""}` },
-        { label: "Saturation", value: `${scaled.fx.saturationAmount.toFixed(1)}% drive` }
-      ]);
+      if (daw === "REAPER") {
+        const preDelayMs = Math.round(18 + intensity * 3);
+        const delayMs = noteValueToMs(scaled.fx.delayTime);
+        const feedbackPct = reaperDelayFeedback(intensity, scaled.fx.delayMix);
+        renderSettingLines(fxSettings, [
+          { label: "ReaVerb", value: `Load IR file, Mix ${scaled.fx.reverbMix.toFixed(1)}%, Pre-delay ${preDelayMs} ms` },
+          { label: "ReaDelay", value: `Tap ${delayMs} ms, Feedback ${feedbackPct}%, Mix ${scaled.fx.delayMix.toFixed(1)}%` },
+          { label: "ReaPitch", value: scaled.fx.pitchShift === "None" ? "Not needed for this chain" : `${scaled.fx.pitchShift} for correction/doubling` },
+          { label: "Stereo", value: `${scaled.fx.stereoWidth}${scaled.fx.retuneSpeed ? `, Retune ${scaled.fx.retuneSpeed} ms` : ""}` },
+          { label: "JS Saturation", value: `Drive ${scaled.fx.saturationAmount.toFixed(1)}%` }
+        ]);
+      } else {
+        renderSettingLines(fxSettings, [
+          { label: "Reverb", value: `${fxStyle.reverbType}, ${scaled.fx.reverbMix.toFixed(1)}%, ${scaled.fx.reverbDecay.toFixed(1)}s, Pre ${Math.round(18 + intensity * 3)} ms` },
+          { label: "Delay", value: `${fxStyle.delayType}, ${scaled.fx.delayMix.toFixed(1)}%, ${scaled.fx.delayTime}` },
+          { label: "Pitch", value: `${scaled.fx.pitchShift}` },
+          { label: "Stereo", value: `${scaled.fx.stereoWidth}${scaled.fx.retuneSpeed ? `, Retune ${scaled.fx.retuneSpeed} ms` : ""}` },
+          { label: "Saturation", value: `${scaled.fx.saturationAmount.toFixed(1)}% drive` }
+        ]);
+      }
 
-      eqLearn.hidden = !learnMode;
-      compLearn.hidden = !learnMode;
-      fxLearn.hidden = !learnMode;
+      eqLearn.hidden = false;
+      compLearn.hidden = false;
+      fxLearn.hidden = false;
+      reaperNote.hidden = daw !== "REAPER";
 
-      eqLearn.textContent = profile.learn.eq;
-      compLearn.textContent = profile.learn.comp;
-      fxLearn.textContent = profile.learn.fx;
+      eqLearn.textContent = rationale.eq;
+      compLearn.textContent = rationale.comp;
+      fxLearn.textContent = rationale.fx;
+      reaperNote.textContent = daw === "REAPER"
+        ? "Save this as an FX Chain: right-click the FX button on the track → Save FX Chain as .RfxChain to reuse across projects."
+        : "";
 
       resultsBadge.textContent = `${profile.label} chain ready`;
       resultHelper.hidden = false;
       copySettingsBtn.hidden = false;
+      downloadSettingsBtn.hidden = false;
       saveChainBtn.hidden = false;
-      shareChainBtn.hidden = false;
+      if (shareChainBtn) shareChainBtn.hidden = false;
+      previewChainBtn.hidden = false;
       emptyState.style.display = "none";
       resultContent.classList.remove("show");
       void resultContent.offsetWidth;
@@ -2238,8 +2606,10 @@ function scaleProfile(profile, intensity) {
     aiInterpretBtn.addEventListener("click", interpretStyleWithAi);
     generateBtn.addEventListener("click", generateChain);
     copySettingsBtn.addEventListener("click", copySettings);
+    downloadSettingsBtn.addEventListener("click", downloadSettings);
     saveChainBtn.addEventListener("click", saveCurrentChain);
-    shareChainBtn.addEventListener("click", shareChain);
+    if (shareChainBtn) shareChainBtn.addEventListener("click", shareChain);
+    previewChainBtn.addEventListener("click", previewChain);
     savedChainsList.addEventListener("click", event => {
       const button = event.target.closest("[data-history-index]");
       if (!button) return;
