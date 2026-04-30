@@ -292,6 +292,17 @@
     label { font-size: 0.95rem; font-weight: 700; color: #ecf2ff; }
     .field-hint { color: var(--muted); font-size: 0.83rem; }
 
+    .preview-disclaimer {
+      margin: 12px 0;
+      padding: 10px 14px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.6);
+      font-size: 0.83rem;
+      text-align: center;
+    }
+
     .preset-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -656,34 +667,30 @@ select option {
     }
 
     .result-actions {
-      display: flex;
-      justify-content: flex-end;
+      display: grid;
       gap: 10px;
       margin-bottom: 14px;
     }
 
-    .playback-status {
-      margin: -2px 0 14px;
-      padding: 10px 12px;
-      border-radius: 14px;
-      background: linear-gradient(180deg, rgba(10, 14, 31, 0.9), rgba(7, 10, 23, 0.94));
-      border: 1px solid rgba(141, 164, 255, 0.12);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    .result-actions-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 10px;
     }
 
-    .playback-status-label {
-      margin-bottom: 8px;
-      color: var(--muted);
-      font-size: 0.78rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+    .playback-status {
+      margin: -2px 0 14px;
+      padding: 0 2px;
     }
 
     .playback-status-track {
-      height: 5px;
+      height: 4px;
       border-radius: 999px;
       background: rgba(184, 198, 240, 0.12);
       overflow: hidden;
+      cursor: pointer;
     }
 
     .playback-status-fill {
@@ -717,6 +724,36 @@ select option {
 
     .utility-btn[hidden] {
       display: none;
+    }
+
+    .utility-btn.is-active {
+      border-color: var(--cyan);
+      background: linear-gradient(135deg, rgba(90,216,255,0.22), rgba(90,216,255,0.14));
+      box-shadow: 0 0 18px rgba(90, 216, 255, 0.18), inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+
+    .preview-btn {
+      position: relative;
+    }
+
+    .preview-btn.is-active::after {
+      content: "";
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      margin-left: 8px;
+      border-radius: 50%;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    .preview-btn--dry.is-active::after {
+      background: #ffffff;
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.45);
+    }
+
+    .preview-btn--wet.is-active::after {
+      background: #00d4ff;
+      box-shadow: 0 0 12px rgba(0, 212, 255, 0.55);
     }
 
     .display-well {
@@ -886,46 +923,6 @@ select option {
       height: auto;
     }
 
-    .waveform-compare {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 14px;
-      margin-top: 16px;
-      padding: 14px;
-      border-radius: 22px;
-      background: linear-gradient(180deg, rgba(10, 14, 31, 0.9), rgba(7, 10, 23, 0.92));
-      border: 1px solid rgba(141, 164, 255, 0.12);
-    }
-
-    .waveform-panel {
-      display: grid;
-      gap: 8px;
-      justify-items: center;
-    }
-
-    .waveform-svg {
-      display: block;
-      width: 180px;
-      height: 60px;
-      border-radius: 14px;
-      background: rgba(8, 12, 27, 0.88);
-      border: 1px solid rgba(141, 164, 255, 0.1);
-    }
-
-    .waveform-label {
-      color: var(--muted);
-      font-size: 0.74rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-    }
-
-    .waveform-arrow {
-      color: var(--muted);
-      font-size: 1.1rem;
-      line-height: 1;
-    }
-
     .flow-dot {
       animation: flowDot 1.8s linear infinite;
       offset-rotate: 0deg;
@@ -1007,13 +1004,19 @@ select option {
     .eq-visualizer {
       display: grid;
       place-items: center;
-      min-height: 96px;
+      min-height: 160px;
       margin: 6px 0 14px;
       padding: 12px;
       border-radius: 18px;
       background: linear-gradient(180deg, rgba(8, 12, 27, 0.88), rgba(14, 19, 39, 0.82));
       border: 1px solid rgba(141, 164, 255, 0.12);
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .eq-visualizer svg {
+      display: block;
+      width: 100%;
+      height: 160px;
     }
 
     .setting-line {
@@ -1218,19 +1221,29 @@ select option {
 
           <div class="result-content" id="resultContent" aria-live="polite" aria-atomic="true">
             <div class="result-actions">
-              <button class="utility-btn" id="copySettingsBtn" type="button" hidden>Copy Settings</button>
-              <button class="utility-btn" id="downloadSettingsBtn" type="button" hidden>Download .txt</button>
-              <button class="utility-btn" id="saveChainBtn" type="button" hidden>Save This Chain</button>
-              <button class="utility-btn" id="previewChainBtn" type="button" hidden>Preview Chain</button>
-              <span class="field-hint" id="previewChainError" hidden>Sample not found</span>
+              <div class="result-actions-row">
+                <button class="utility-btn" id="copySettingsBtn" type="button" hidden>Copy Settings</button>
+                <button class="utility-btn" id="downloadSettingsBtn" type="button" hidden>Download .txt</button>
+                <button class="utility-btn" id="downloadJsonBtn" type="button" hidden>Download .json</button>
+                <button class="utility-btn" id="saveChainBtn" type="button" hidden>Save This Chain</button>
+              </div>
+              <div class="result-actions-row">
+                <button class="utility-btn" id="loadSampleBtn" type="button" hidden>Load Sample</button>
+                <button class="utility-btn preview-btn preview-btn--dry" id="previewDryBtn" type="button" hidden>DRY</button>
+                <button class="utility-btn preview-btn preview-btn--wet" id="previewWetBtn" type="button" hidden>WET</button>
+                <button class="utility-btn preview-btn" id="previewStopBtn" type="button" hidden>STOP</button>
+                <span class="field-hint" id="previewFileName" hidden></span>
+              </div>
+              <input id="previewFileInput" type="file" accept="audio/*" hidden />
+              <span class="field-hint" id="previewChainError" hidden></span>
             </div>
 
             <div class="playback-status" id="playbackStatus" hidden>
-              <div class="playback-status-label" id="playbackStatusLabel">▶ DRY</div>
-              <div class="playback-status-track" aria-hidden="true">
+              <div class="playback-status-track" id="playbackStatusTrack" aria-hidden="true">
                 <div class="playback-status-fill" id="playbackStatusFill"></div>
               </div>
             </div>
+            <div class="preview-disclaimer">⚠ Preview reflects EQ and dynamics only — pitch correction and time effects require your DAW.</div>
 
             <div class="vibe-box">
               <div class="vibe-label">Vibe Description</div>
@@ -1243,18 +1256,6 @@ select option {
             </div>
 
             <div class="result-helper" id="resultHelper" hidden>Use these settings in your DAW to recreate this vocal sound.</div>
-
-            <div class="waveform-compare" id="waveformCompare" hidden>
-              <div class="waveform-panel">
-                <svg class="waveform-svg" id="dryWaveform" viewBox="0 0 180 60" aria-label="Dry waveform preview"></svg>
-                <div class="waveform-label">DRY</div>
-              </div>
-              <div class="waveform-arrow" aria-hidden="true">→</div>
-              <div class="waveform-panel">
-                <svg class="waveform-svg" id="processedWaveform" viewBox="0 0 180 60" aria-label="Processed waveform preview"></svg>
-                <div class="waveform-label">PROCESSED</div>
-              </div>
-            </div>
 
             <div class="signal-chain" id="signalChain" hidden></div>
 
@@ -1327,18 +1328,21 @@ select option {
     const resultsBadge = document.getElementById("resultsBadge");
     const copySettingsBtn = document.getElementById("copySettingsBtn");
     const downloadSettingsBtn = document.getElementById("downloadSettingsBtn");
+    const downloadJsonBtn = document.getElementById("downloadJsonBtn");
     const saveChainBtn = document.getElementById("saveChainBtn");
     const shareChainBtn = document.getElementById("shareChainBtn");
-    const previewChainBtn = document.getElementById("previewChainBtn");
+    const loadSampleBtn = document.getElementById("loadSampleBtn");
+    const previewDryBtn = document.getElementById("previewDryBtn");
+    const previewWetBtn = document.getElementById("previewWetBtn");
+    const previewStopBtn = document.getElementById("previewStopBtn");
+    const previewFileInput = document.getElementById("previewFileInput");
+    const previewFileName = document.getElementById("previewFileName");
     const previewChainError = document.getElementById("previewChainError");
     const playbackStatus = document.getElementById("playbackStatus");
-    const playbackStatusLabel = document.getElementById("playbackStatusLabel");
+    const playbackStatusTrack = document.getElementById("playbackStatusTrack");
     const playbackStatusFill = document.getElementById("playbackStatusFill");
     const vibeText = document.getElementById("vibeText");
     const resultHelper = document.getElementById("resultHelper");
-    const waveformCompare = document.getElementById("waveformCompare");
-    const dryWaveform = document.getElementById("dryWaveform");
-    const processedWaveform = document.getElementById("processedWaveform");
     const signalChain = document.getElementById("signalChain");
     const metaStyle = document.getElementById("metaStyle");
     const metaDaw = document.getElementById("metaDaw");
@@ -1363,7 +1367,14 @@ select option {
     const clearHistoryBtn = document.getElementById("clearHistoryBtn");
     let latestRenderedChain = null;
     let previewSampleBuffer = null;
+    let previewDecodedBuffer = null;
+    let previewSampleName = "";
     let playbackStatusTimer = null;
+    let previewAudioContext = null;
+    let previewCurrentSource = null;
+    let previewCurrentMode = null;
+    let previewPlaybackStartTime = 0;
+    let previewScrubbing = false;
 
 const vocalPresets = {
   cleanNatural: {
@@ -1931,10 +1942,9 @@ function scaleProfile(profile, intensity) {
       return Math.round(clamp((delayMix * 1.2) + (intensity * 2.5), 18, 52));
     }
 
-    function setPlaybackStatus(state, progress) {
-      if (!playbackStatus || !playbackStatusLabel || !playbackStatusFill) return;
+    function setPlaybackStatus(progress) {
+      if (!playbackStatus || !playbackStatusFill) return;
       playbackStatus.hidden = false;
-      playbackStatusLabel.textContent = state;
       playbackStatusFill.style.width = `${Math.max(0, Math.min(100, progress))}%`;
     }
 
@@ -1944,187 +1954,235 @@ function scaleProfile(profile, intensity) {
       playbackStatusFill.style.width = "0%";
     }
 
-    function updateEqVisualizer(eq) {
-      if (!eqVisualizer || !eq?.moves?.length) return;
-
-      const width = 300;
-      const height = 80;
-      const baseline = 44;
-      const points = Array.from({ length: 13 }, (_, index) => {
-        const t = index / 12;
-        const x = 16 + t * (width - 32);
-        let y = baseline;
-
-        y += Math.max(0, (eq.hpf - 60) / 20) * Math.max(0, 1 - t / 0.18) * 18;
-        y += Math.max(0, Math.abs(eq.moves[0].scaledGain)) * (1 - Math.abs(t - 0.28) / 0.18) * 3.2;
-        y -= Math.max(0, eq.moves[1].scaledGain) * (1 - Math.abs(t - 0.68) / 0.16) * 4.2;
-        y -= Math.max(0, eq.moves[2].scaledGain) * Math.max(0, (t - 0.78) / 0.22) * 4.5;
-
-        return [x, Math.max(12, Math.min(height - 12, y))];
+    function readPreviewFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error || new Error("Unable to read selected audio file"));
+        reader.readAsArrayBuffer(file);
       });
-
-      const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point[0].toFixed(1)} ${point[1].toFixed(1)}`).join(" ");
-
-      eqVisualizer.innerHTML = `
-        <svg width="300" height="80" viewBox="0 0 300 80" role="img" aria-label="EQ frequency response">
-          <rect x="0" y="0" width="300" height="80" rx="14" fill="rgba(8, 12, 27, 0.01)"></rect>
-          <line x1="16" y1="${baseline}" x2="284" y2="${baseline}" stroke="rgba(184,198,240,0.18)" stroke-width="1"></line>
-          <path d="${path}" fill="none" stroke="#00d4ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
-        </svg>
-      `;
     }
 
-    async function previewChain() {
-      if (!latestRenderedChain) return;
+    function setPreviewButtonState(mode) {
+      previewDryBtn.classList.toggle("is-active", mode === "dry");
+      previewWetBtn.classList.toggle("is-active", mode === "wet");
+      previewStopBtn.classList.toggle("is-active", mode === "stop");
+    }
 
-      const originalLabel = previewChainBtn.textContent;
-      previewChainBtn.textContent = "▶ DRY";
-      previewChainBtn.disabled = true;
-      previewChainError.hidden = true;
+    function startPlaybackProgress() {
+      if (!previewDecodedBuffer || !previewAudioContext) return;
+      if (playbackStatusTimer) {
+        window.clearInterval(playbackStatusTimer);
+      }
+      setPlaybackStatus(0);
+      playbackStatusTimer = window.setInterval(() => {
+        if (!previewCurrentSource || !previewCurrentMode || !previewDecodedBuffer) return;
+        const elapsed = Math.max(0, previewAudioContext.currentTime - previewPlaybackStartTime);
+        const loopProgress = (elapsed % previewDecodedBuffer.duration) / previewDecodedBuffer.duration;
+        setPlaybackStatus(loopProgress * 100);
+      }, 50);
+    }
+
+    function stopCurrentPreviewSource() {
+      if (!previewCurrentSource) return;
+      try {
+        previewCurrentSource.onended = null;
+        previewCurrentSource.stop();
+      } catch (error) {}
+      previewCurrentSource.disconnect();
+      previewCurrentSource = null;
+    }
+
+    function buildPreviewSource(audioContext, mode) {
+      const source = audioContext.createBufferSource();
+      source.buffer = previewDecodedBuffer;
+      source.loop = true;
+
+      if (mode === "wet") {
+        const currentStyleText = (styleInput.value || "").toLowerCase();
+        source.playbackRate.value = currentStyleText.includes("chopped") || currentStyleText.includes("screwed") ? 0.75 : 1.0;
+
+        const chain = latestRenderedChain;
+        if (!chain?.eq?.moves?.length || !chain?.comp) {
+          previewChainError.textContent = "Generate a chain first before previewing WET.";
+          previewChainError.hidden = false;
+          return source;
+        }
+
+        const hpf = audioContext.createBiquadFilter();
+        hpf.type = "highpass";
+        hpf.frequency.setValueAtTime(chain.eq.hpf, audioContext.currentTime);
+
+        const lowMid = audioContext.createBiquadFilter();
+        lowMid.type = "peaking";
+        lowMid.frequency.setValueAtTime(chain.eq.moves[0].freq, audioContext.currentTime);
+        lowMid.Q.setValueAtTime(chain.eq.moves[0].q || 1, audioContext.currentTime);
+        lowMid.gain.setValueAtTime(chain.eq.moves[0].scaledGain, audioContext.currentTime);
+
+        const presence = audioContext.createBiquadFilter();
+        presence.type = "peaking";
+        presence.frequency.setValueAtTime(chain.eq.moves[1].freq, audioContext.currentTime);
+        presence.Q.setValueAtTime(chain.eq.moves[1].q || 0.9, audioContext.currentTime);
+        presence.gain.setValueAtTime(chain.eq.moves[1].scaledGain, audioContext.currentTime);
+
+        const air = audioContext.createBiquadFilter();
+        air.type = "highshelf";
+        air.frequency.setValueAtTime(chain.eq.moves[2].freq, audioContext.currentTime);
+        air.gain.setValueAtTime(chain.eq.moves[2].scaledGain, audioContext.currentTime);
+
+        const compressor = audioContext.createDynamicsCompressor();
+        compressor.threshold.setValueAtTime(chain.comp.threshold, audioContext.currentTime);
+        compressor.ratio.setValueAtTime(chain.comp.ratio, audioContext.currentTime);
+        compressor.attack.setValueAtTime(Math.max(0.001, chain.comp.attack / 1000), audioContext.currentTime);
+        compressor.release.setValueAtTime(Math.max(0.05, chain.comp.release / 1000), audioContext.currentTime);
+        compressor.knee.setValueAtTime(6, audioContext.currentTime);
+
+        const makeupGain = audioContext.createGain();
+        const makeupLinear = Math.max(0.6, Math.min(2.4, Math.pow(10, (chain.comp.makeup || 0) / 20)));
+        makeupGain.gain.setValueAtTime(makeupLinear, audioContext.currentTime);
+
+        source.connect(hpf);
+        hpf.connect(lowMid);
+        lowMid.connect(presence);
+        presence.connect(air);
+        air.connect(compressor);
+        compressor.connect(makeupGain);
+        makeupGain.connect(audioContext.destination);
+
+        console.log("Chain connected: HPF → Peaking → Compressor → Gain → destination");
+      } else {
+        source.playbackRate.value = 1.0;
+        source.connect(audioContext.destination);
+      }
+
+      return source;
+    }
+
+    async function restartPreviewFromOffset(mode, offsetSeconds) {
+      if (!previewDecodedBuffer) return;
+
+      const audioContext = await getPreviewAudioContext();
+      const safeOffset = Math.max(0, Math.min(offsetSeconds, Math.max(0.001, previewDecodedBuffer.duration - 0.001)));
+
+      stopCurrentPreviewSource();
+
+      const source = buildPreviewSource(audioContext, mode);
+      source.onended = () => {
+        if (previewCurrentSource === source) {
+          previewCurrentSource = null;
+          previewCurrentMode = null;
+          previewPlaybackStartTime = 0;
+          setPreviewButtonState(null);
+          hidePlaybackStatus();
+        }
+      };
+
+      source.start(0, safeOffset);
+      previewCurrentSource = source;
+      previewCurrentMode = mode;
+      previewPlaybackStartTime = audioContext.currentTime - safeOffset;
+      setPreviewButtonState(mode);
+      startPlaybackProgress();
+    }
+
+    function scrubPreviewAtClientX(clientX) {
+      if (!previewDecodedBuffer || !previewCurrentMode || !playbackStatusTrack) return;
+      const rect = playbackStatusTrack.getBoundingClientRect();
+      if (!rect.width) return;
+      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const offset = ratio * previewDecodedBuffer.duration;
+      setPlaybackStatus(ratio * 100);
+      restartPreviewFromOffset(previewCurrentMode, offset);
+    }
+
+    async function getPreviewAudioContext() {
+      if (!previewAudioContext) {
+        previewAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      await previewAudioContext.resume();
+      return previewAudioContext;
+    }
+
+    function stopPreviewPlayback(markStopped = true) {
       if (playbackStatusTimer) {
         window.clearInterval(playbackStatusTimer);
         playbackStatusTimer = null;
       }
+      stopCurrentPreviewSource();
+
+      previewCurrentMode = null;
+      previewPlaybackStartTime = 0;
+      setPreviewButtonState(null);
+      hidePlaybackStatus();
+    }
+
+    async function playPreviewMode(mode) {
+      if (!previewDecodedBuffer) return;
+
+      previewChainError.hidden = true;
+      previewChainError.textContent = "";
 
       try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        if (!previewSampleBuffer) {
-          const response = await fetch("./vocal_dry.wav");
-          if (!response.ok) throw new Error("Sample not found");
-          const buffer = await response.arrayBuffer();
-          previewSampleBuffer = await audioContext.decodeAudioData(buffer.slice(0));
-        }
-
-        const buffer = previewSampleBuffer;
-        const now = audioContext.currentTime + 0.05;
-        const clipDuration = buffer.duration;
-        const totalDuration = (clipDuration * 2) + 0.5;
-        const wetStartDelay = clipDuration + 0.5;
-        const startMs = performance.now();
-
-        setPlaybackStatus("▶ DRY", 0);
-        playbackStatusTimer = window.setInterval(() => {
-          const elapsed = (performance.now() - startMs) / 1000;
-          const progress = (elapsed / totalDuration) * 100;
-          if (elapsed >= wetStartDelay) {
-            setPlaybackStatus("▶ WET", progress);
-          } else {
-            setPlaybackStatus("▶ DRY", progress);
-          }
-          if (elapsed >= totalDuration && playbackStatusTimer) {
-            window.clearInterval(playbackStatusTimer);
-            playbackStatusTimer = null;
-          }
-        }, 60);
-
-        const drySource = audioContext.createBufferSource();
-        drySource.buffer = buffer;
-        drySource.connect(audioContext.destination);
-
-        const wetSource = audioContext.createBufferSource();
-        wetSource.buffer = buffer;
-
-        const hpf = audioContext.createBiquadFilter();
-        hpf.type = "highpass";
-        hpf.frequency.setValueAtTime(latestRenderedChain.eq.hpf, now);
-
-        const presence = audioContext.createBiquadFilter();
-        presence.type = "peaking";
-        presence.frequency.setValueAtTime(latestRenderedChain.eq.moves[1].freq, now);
-        presence.Q.setValueAtTime(latestRenderedChain.eq.moves[1].q || 0.9, now);
-        presence.gain.setValueAtTime(latestRenderedChain.eq.moves[1].scaledGain, now);
-
-        const compressor = audioContext.createDynamicsCompressor();
-        compressor.threshold.setValueAtTime(latestRenderedChain.comp.threshold, now);
-        compressor.ratio.setValueAtTime(latestRenderedChain.comp.ratio, now);
-        compressor.attack.setValueAtTime(Math.max(0.001, latestRenderedChain.comp.attack / 1000), now);
-        compressor.release.setValueAtTime(Math.max(0.05, latestRenderedChain.comp.release / 1000), now);
-
-        wetSource.connect(hpf);
-        hpf.connect(presence);
-        presence.connect(compressor);
-        compressor.connect(audioContext.destination);
-
-        drySource.start(now);
-        wetSource.start(now + clipDuration + 0.5);
-
-        window.setTimeout(() => {
-          previewChainBtn.textContent = "▶ WET";
-          setPlaybackStatus("▶ WET", (wetStartDelay / totalDuration) * 100);
-        }, Math.max(0, wetStartDelay * 1000));
-
-        wetSource.onended = () => {
-          window.setTimeout(() => {
-            if (playbackStatusTimer) {
-              window.clearInterval(playbackStatusTimer);
-              playbackStatusTimer = null;
-            }
-            hidePlaybackStatus();
-            previewChainBtn.textContent = originalLabel;
-            previewChainBtn.disabled = false;
-            audioContext.close();
-          }, 50);
-        };
+        stopPreviewPlayback(false);
+        await restartPreviewFromOffset(mode, 0);
       } catch (error) {
-        if (playbackStatusTimer) {
-          window.clearInterval(playbackStatusTimer);
-          playbackStatusTimer = null;
-        }
-        hidePlaybackStatus();
+        stopPreviewPlayback(true);
         previewChainError.hidden = false;
-        previewChainBtn.textContent = originalLabel;
-        previewChainBtn.disabled = false;
+        previewChainError.textContent = `Error: ${error?.message || String(error)}`;
       }
     }
 
-    function buildWaveformPath(points) {
-      return points.map((point, index) => `${index === 0 ? "M" : "L"} ${point[0]} ${point[1]}`).join(" ");
-    }
+    function updateEqVisualizer(eq) {
+      if (!eqVisualizer || !eq?.moves?.length) return;
 
-    function renderWaveformComparison(chain, intensity) {
-      if (!waveformCompare || !dryWaveform || !processedWaveform) return;
+      const width = 680;
+      const height = 160;
+      const baseline = 82;
+      const innerLeft = 18;
+      const innerRight = width - 18;
+      const innerWidth = innerRight - innerLeft;
+      const scaleX = t => innerLeft + (innerWidth * t);
+      const clampY = y => Math.max(18, Math.min(height - 18, y));
+      const hpfT = 0.12;
+      const lowMidT = 0.32;
+      const presenceT = 0.7;
+      const airT = 0.9;
 
-      const dryPoints = [
-        [8, 32], [18, 16], [28, 44], [38, 10], [48, 36], [58, 14], [68, 48], [78, 12],
-        [88, 40], [98, 18], [108, 46], [118, 14], [128, 34], [138, 20], [148, 42], [158, 16], [172, 31]
-      ];
+      const points = Array.from({ length: 25 }, (_, index) => {
+        const t = index / 24;
+        const x = scaleX(t);
+        let y = baseline;
 
-      const ratio = chain.comp.ratio;
-      const reverbMix = chain.fx.reverbMix;
-      const tightness = intensity > 7 ? 0.72 : intensity < 4 ? 1.12 : 0.92;
-      const uniformity = ratio > 4 ? 0.62 : 0.88;
-      const tailAmount = reverbMix > 40 ? 1 : 0;
-      const baseHeights = [14, 26, 12, 24, 13, 22, 14, 20, 15, 18, 14, 17, 15, 16];
-      const processedPoints = baseHeights.map((height, index) => {
-        const x = 10 + index * 11.5;
-        const amplitude = height * tightness * uniformity + (index % 2 === 0 ? 2 : -1);
-        const y = 30 - amplitude;
-        return [Number(x.toFixed(1)), Number(y.toFixed(1))];
+        y += Math.max(0, (eq.hpf - 60) / 18) * Math.max(0, 1 - t / 0.16) * 12;
+        y += Math.max(0, Math.abs(eq.moves[0].scaledGain)) * Math.max(0, 1 - Math.abs(t - lowMidT) / 0.16) * 4.6;
+        y -= Math.max(0, eq.moves[1].scaledGain) * Math.max(0, 1 - Math.abs(t - presenceT) / 0.13) * 5.2;
+        y -= Math.max(0, eq.moves[2].scaledGain) * Math.max(0, (t - 0.78) / 0.22) * 5.2;
+
+        return [x, clampY(y)];
       });
 
-      const processedMirror = processedPoints.map(([x, y], index) => [x, Number((60 - y + (index % 3 - 1)).toFixed(1))]);
-      const processedFull = [];
-      for (let i = 0; i < processedPoints.length; i++) {
-        processedFull.push(processedPoints[i]);
-        processedFull.push(processedMirror[i]);
-      }
-      processedFull.sort((a, b) => a[0] - b[0]);
+      const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point[0].toFixed(1)} ${point[1].toFixed(1)}`).join(" ");
+      const annotationColor = "rgba(152, 229, 255, 0.82)";
+      const hpfPoint = { x: scaleX(hpfT), y: clampY(baseline + Math.max(0, (eq.hpf - 60) / 18) * 10.5) };
+      const lowMidPoint = { x: scaleX(lowMidT), y: clampY(baseline + Math.max(0, Math.abs(eq.moves[0].scaledGain)) * 4.4) };
+      const presencePoint = { x: scaleX(presenceT), y: clampY(baseline - Math.max(0, eq.moves[1].scaledGain) * 5) };
+      const airPoint = { x: scaleX(airT), y: clampY(baseline - Math.max(0, eq.moves[2].scaledGain) * 5.2) };
 
-      if (tailAmount) {
-        processedFull.push([166, 28], [172, 31], [176, 33]);
-      }
-
-      dryWaveform.innerHTML = `
-        <rect x="0" y="0" width="180" height="60" rx="14" fill="rgba(8, 12, 27, 0.88)"></rect>
-        <path d="${buildWaveformPath(dryPoints)}" fill="none" stroke="#00d4ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+      eqVisualizer.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="EQ frequency response with annotated filter points">
+          <rect x="0" y="0" width="${width}" height="${height}" rx="14" fill="rgba(8, 12, 27, 0.01)"></rect>
+          <line x1="${innerLeft}" y1="${baseline}" x2="${innerRight}" y2="${baseline}" stroke="rgba(184,198,240,0.18)" stroke-width="1"></line>
+          <path d="${path}" fill="none" stroke="#00d4ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+          <circle cx="${hpfPoint.x}" cy="${hpfPoint.y}" r="3" fill="#00d4ff"></circle>
+          <circle cx="${lowMidPoint.x}" cy="${lowMidPoint.y}" r="3" fill="#00d4ff"></circle>
+          <circle cx="${presencePoint.x}" cy="${presencePoint.y}" r="3" fill="#00d4ff"></circle>
+          <circle cx="${airPoint.x}" cy="${airPoint.y}" r="3" fill="#00d4ff"></circle>
+          <text x="${hpfPoint.x - 16}" y="${hpfPoint.y - 10}" fill="${annotationColor}" font-size="10">${Math.round(eq.hpf)}Hz</text>
+          <text x="${lowMidPoint.x - 40}" y="${lowMidPoint.y + 18}" fill="${annotationColor}" font-size="10">${eq.moves[0].scaledGain.toFixed(1)}dB @ ${Math.round(eq.moves[0].freq)}Hz</text>
+          <text x="${presencePoint.x - 36}" y="${presencePoint.y - 10}" fill="${annotationColor}" font-size="10">${eq.moves[1].scaledGain > 0 ? "+" : ""}${eq.moves[1].scaledGain.toFixed(1)}dB @ ${(eq.moves[1].freq / 1000).toFixed(1)}kHz</text>
+          <text x="${airPoint.x - 36}" y="${airPoint.y - 10}" fill="${annotationColor}" font-size="10">${eq.moves[2].scaledGain > 0 ? "+" : ""}${eq.moves[2].scaledGain.toFixed(1)}dB @ ${(eq.moves[2].freq / 1000).toFixed(1)}kHz</text>
+        </svg>
       `;
-
-      processedWaveform.innerHTML = `
-        <rect x="0" y="0" width="180" height="60" rx="14" fill="rgba(8, 12, 27, 0.88)"></rect>
-        <path d="${buildWaveformPath(processedFull)}" fill="none" stroke="#00d4ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
-      `;
-
-      waveformCompare.hidden = false;
     }
 
     function renderSignalChain(profile, scaled) {
@@ -2227,6 +2285,66 @@ function scaleProfile(profile, intensity) {
       const intensityToken = intensityRange.value;
       const filename = `VocalChain_${styleToken}_${dawToken}_${intensityToken}.txt`;
       const blob = new Blob([buildSettingsText()], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function buildChainJson() {
+      if (!latestRenderedChain?.eq?.moves?.length || !latestRenderedChain?.comp || !latestRenderedChain?.fx) return null;
+
+      const intensity = Number(intensityRange.value);
+      const delayMix = latestRenderedChain.fx.delayMix;
+
+      return {
+        meta: {
+          style: styleInput.value.trim() || "",
+          daw: dawSelect.value,
+          intensity
+        },
+        eq: {
+          hpf_hz: Math.round(latestRenderedChain.eq.hpf),
+          lowmid_hz: Math.round(latestRenderedChain.eq.moves[0].freq),
+          lowmid_db: Number(latestRenderedChain.eq.moves[0].scaledGain.toFixed(1)),
+          lowmid_q: Number((latestRenderedChain.eq.moves[0].q || 0).toFixed(2)),
+          presence_hz: Math.round(latestRenderedChain.eq.moves[1].freq),
+          presence_db: Number(latestRenderedChain.eq.moves[1].scaledGain.toFixed(1)),
+          presence_q: Number((latestRenderedChain.eq.moves[1].q || 0).toFixed(2)),
+          air_hz: Math.round(latestRenderedChain.eq.moves[2].freq),
+          air_db: Number(latestRenderedChain.eq.moves[2].scaledGain.toFixed(1)),
+          deesser_hz: Math.round(latestRenderedChain.eq.deEss.freq),
+          deesser_db: Number(latestRenderedChain.eq.deEss.amount.toFixed(1))
+        },
+        comp: {
+          threshold_db: Number(latestRenderedChain.comp.threshold.toFixed(1)),
+          ratio: Number(latestRenderedChain.comp.ratio.toFixed(1)),
+          attack_ms: Number(latestRenderedChain.comp.attack.toFixed(0)),
+          release_ms: Number(latestRenderedChain.comp.release.toFixed(0)),
+          makeup_db: Number(latestRenderedChain.comp.makeup.toFixed(1))
+        },
+        fx: {
+          reverb_mix_pct: Number(latestRenderedChain.fx.reverbMix.toFixed(1)),
+          reverb_decay_s: Number(latestRenderedChain.fx.reverbDecay.toFixed(1)),
+          predelay_ms: Math.round(18 + intensity * 3),
+          delay_mix_pct: Number(delayMix.toFixed(1)),
+          delay_time_ms: noteValueToMs(latestRenderedChain.fx.delayTime),
+          delay_feedback_pct: reaperDelayFeedback(intensity, delayMix)
+        }
+      };
+    }
+
+    function downloadJsonSettings() {
+      const chainJson = buildChainJson();
+      if (!chainJson) return;
+
+      const styleToken = (styleInput.value.trim() || "Style").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
+      const dawToken = dawSelect.value.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
+      const intensityToken = intensityRange.value;
+      const filename = `VocalChain_${styleToken}_${dawToken}_${intensityToken}.json`;
+      const blob = new Blob([JSON.stringify(chainJson, null, 2)], { type: "application/json;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -2541,7 +2659,6 @@ function scaleProfile(profile, intensity) {
         ]);
       }
       updateEqVisualizer(scaled.eq);
-      renderWaveformComparison(latestRenderedChain, intensity);
       renderSignalChain(profile, scaled);
 
       compPlugin.textContent = plugins.comp;
@@ -2592,9 +2709,14 @@ function scaleProfile(profile, intensity) {
       resultHelper.hidden = false;
       copySettingsBtn.hidden = false;
       downloadSettingsBtn.hidden = false;
+      downloadJsonBtn.hidden = false;
       saveChainBtn.hidden = false;
       if (shareChainBtn) shareChainBtn.hidden = false;
-      previewChainBtn.hidden = false;
+      loadSampleBtn.hidden = false;
+      previewDryBtn.hidden = !previewDecodedBuffer;
+      previewWetBtn.hidden = !previewDecodedBuffer;
+      previewStopBtn.hidden = !previewDecodedBuffer;
+      previewFileName.hidden = !previewSampleName;
       emptyState.style.display = "none";
       resultContent.classList.remove("show");
       void resultContent.offsetWidth;
@@ -2607,9 +2729,66 @@ function scaleProfile(profile, intensity) {
     generateBtn.addEventListener("click", generateChain);
     copySettingsBtn.addEventListener("click", copySettings);
     downloadSettingsBtn.addEventListener("click", downloadSettings);
+    downloadJsonBtn.addEventListener("click", downloadJsonSettings);
     saveChainBtn.addEventListener("click", saveCurrentChain);
     if (shareChainBtn) shareChainBtn.addEventListener("click", shareChain);
-    previewChainBtn.addEventListener("click", previewChain);
+    loadSampleBtn.addEventListener("click", () => {
+      previewChainError.hidden = true;
+      previewChainError.textContent = "";
+      previewFileInput.click();
+    });
+    previewDryBtn.addEventListener("click", async () => {
+      await playPreviewMode("dry");
+    });
+    previewWetBtn.addEventListener("click", async () => {
+      await playPreviewMode("wet");
+    });
+    previewStopBtn.addEventListener("click", () => {
+      stopPreviewPlayback(true);
+    });
+    playbackStatusTrack.addEventListener("mousedown", event => {
+      if (!previewDecodedBuffer || !previewCurrentMode) return;
+      previewScrubbing = true;
+      scrubPreviewAtClientX(event.clientX);
+    });
+    playbackStatusTrack.addEventListener("click", event => {
+      if (!previewDecodedBuffer || !previewCurrentMode) return;
+      scrubPreviewAtClientX(event.clientX);
+    });
+    window.addEventListener("mousemove", event => {
+      if (!previewScrubbing) return;
+      scrubPreviewAtClientX(event.clientX);
+    });
+    window.addEventListener("mouseup", () => {
+      previewScrubbing = false;
+    });
+    previewFileInput.addEventListener("change", async event => {
+      const [file] = event.target.files || [];
+      if (!file) return;
+
+      try {
+        previewChainError.hidden = true;
+        previewChainError.textContent = "";
+        stopPreviewPlayback(true);
+        const nextSampleBuffer = await readPreviewFile(file);
+        const decodeContext = await getPreviewAudioContext();
+        const nextDecodedBuffer = await decodeContext.decodeAudioData(nextSampleBuffer.slice(0));
+        previewSampleBuffer = nextSampleBuffer;
+        previewDecodedBuffer = nextDecodedBuffer;
+        previewSampleName = file.name;
+        previewFileName.textContent = `${previewSampleName} loaded ✓`;
+        previewFileName.hidden = false;
+        previewDryBtn.hidden = false;
+        previewWetBtn.hidden = false;
+        previewStopBtn.hidden = false;
+        setPreviewButtonState("stop");
+      } catch (error) {
+        previewChainError.hidden = false;
+        previewChainError.textContent = `Error: ${error?.message || String(error)}`;
+      } finally {
+        previewFileInput.value = "";
+      }
+    });
     savedChainsList.addEventListener("click", event => {
       const button = event.target.closest("[data-history-index]");
       if (!button) return;
