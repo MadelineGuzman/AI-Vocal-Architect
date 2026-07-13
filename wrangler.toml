@@ -1,4 +1,4 @@
-name = "deckar8t-site"
+name = "syzygy-vocal-architect"
 main = "worker.js"
 compatibility_date = "2026-04-25"
 workers_dev = true
