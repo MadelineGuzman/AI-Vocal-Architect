@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Syzygy Entertainment favicon">
+  <defs>
+    <linearGradient id="bg" x1="10" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0b1021"></stop>
+      <stop offset="0.58" stop-color="#080c18"></stop>
+      <stop offset="1" stop-color="#04050d"></stop>
+    </linearGradient>
+    <radialGradient id="nebula" cx="0" cy="0" r="1" gradientTransform="translate(18 18) rotate(37) scale(37 34)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#183454" stop-opacity="0.52"></stop>
+      <stop offset="0.45" stop-color="#13213d" stop-opacity="0.22"></stop>
+      <stop offset="1" stop-color="#04050d" stop-opacity="0"></stop>
+    </radialGradient>
+    <radialGradient id="flare" cx="0" cy="0" r="1" gradientTransform="translate(48 15) rotate(90) scale(12)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f6d07b" stop-opacity="0.95"></stop>
+      <stop offset="1" stop-color="#f6d07b" stop-opacity="0"></stop>
+    </radialGradient>
+    <linearGradient id="gold" x1="20" y1="12" x2="42" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff0bf"></stop>
+      <stop offset="0.18" stop-color="#f9df95"></stop>
+      <stop offset="0.5" stop-color="#f0c060"></stop>
+      <stop offset="0.78" stop-color="#c88c2d"></stop>
+      <stop offset="1" stop-color="#fff0bf"></stop>
+    </linearGradient>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.6" result="blur"></feGaussianBlur>
+      <feMerge>
+        <feMergeNode in="blur"></feMergeNode>
+        <feMergeNode in="SourceGraphic"></feMergeNode>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="64" height="64" rx="16" fill="url(#bg)"></rect>
+  <rect width="64" height="64" rx="16" fill="url(#nebula)"></rect>
+  <path d="M47.5 15.5A20.5 20.5 0 0 0 17 48" fill="none" stroke="#5ad8ff" stroke-opacity=".2" stroke-width="1.4" stroke-linecap="round"></path>
+  <circle cx="47.5" cy="15.5" r="2" fill="url(#gold)"></circle>
+  <circle cx="47.5" cy="15.5" r="5" fill="url(#flare)"></circle>
+  <circle cx="16.5" cy="18" r="1.1" fill="#f5dd9f" opacity=".95"></circle>
+  <circle cx="13" cy="24" r=".7" fill="#ffffff" opacity=".7"></circle>
+  <circle cx="50.5" cy="46" r=".8" fill="#ffffff" opacity=".52"></circle>
+  <path d="M44 16C40 13.3 31.4 12.6 26.4 15.6C21.8 18.3 21.4 23 25 25.8C28.1 28.2 33.1 28.9 36.6 30.5C40.5 32.2 42.4 35.1 41.5 39.1C40.5 43.7 35.9 47.5 28.8 48C24.3 48.4 20.9 47.3 18.4 45.1" fill="none" stroke="url(#gold)" stroke-width="6.2" stroke-linecap="round" stroke-linejoin="round" filter="url(#softGlow)"></path>
+</svg>

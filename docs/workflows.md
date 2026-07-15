@@ -13,9 +13,13 @@
 ## Preview Workflow
 
 1. Load a vocal sample.
-2. Compare `DRY` and `WET` monitoring states.
-3. Scrub through the preview bar to inspect different sections.
-4. Revisit preset, style, or intensity settings as needed.
+2. Review the local recording analysis, confidence, and limitations.
+3. Inspect which corrective chain decisions reference measured findings.
+4. Compare `DRY` and `WET` monitoring states.
+5. Scrub through the preview bar to inspect different sections.
+6. Revisit preset, style, or intensity settings as needed.
+
+The current analyzer runs in the browser. Loaded audio is not uploaded by this workflow.
 
 ## Documentation Workflow
 

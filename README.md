@@ -1,12 +1,12 @@
-# AI Vocal Architect
+# Cadenzai
 
-AI Vocal Architect is a production-focused tool for designing repeatable vocal processing chains from style intent, DAW context, and mix intensity. It explores how AI-assisted decision systems can speed up vocal production without removing engineering judgment from the process.
+Cadenzai is a project-based music production workspace from Syzygy Entertainment. Vocal Architect is its vocal-engineering module, combining creative intent, DAW context, style, processing intensity, and local recording evidence into practical vocal-chain blueprints.
 
 The project is built around a practical studio question: how do you turn a creative description such as "aggressive rap lead" or "warm intimate R&B vocal" into a structured signal chain quickly, consistently, and in a way that still leaves room for taste?
 
 ## Overview
 
-AI Vocal Architect maps high-level vocal goals to concrete processing decisions. It generates vocal chain blueprints that include EQ moves, compression behavior, de-essing targets, ambience settings, and DAW-aware plugin recommendations.
+The application now follows a persistent production workflow: Dashboard → Project → Creative Intent → Lyrics → Recording Analysis → Vocal Architect → Project Review. Arrangement, Vocal Blueprint, Validation, Mastering, and Release have explicit architectural extension points without fabricated functionality.
 
 Rather than acting as a one-click mixer, the system is designed as a production assistant. It provides a strong technical starting point that engineers can adjust inside their own session workflow.
 
@@ -42,6 +42,8 @@ Rather than acting as a one-click mixer, the system is designed as a production 
 - Demonstrates dry vs. wet comparison logic for vocal previewing
 - Surfaces chain state visually through EQ response and signal-flow displays
 - Exposes parameter-level debug and export data for validation
+- Analyzes loaded audio locally for levels, dynamics, clipping, silence, and coarse spectral balance
+- Connects supported recording findings to corrective chain decisions with confidence and analyzer provenance
 
 ### Automation and Systemization Concepts
 
@@ -59,9 +61,9 @@ Rather than acting as a one-click mixer, the system is designed as a production 
 
 ### Application Layer
 
-- Vanilla HTML, CSS, and JavaScript
+- Modular vanilla HTML, CSS, and JavaScript with ordered browser modules that also work from `file://`
 - Web Audio API for local preview and signal-chain demonstration
-- Local storage for saved chain history and session recall concepts
+- Local storage for projects, preferences, creative intent, lyrics decisions, chain state, analysis reports, and review history
 
 ### AI and Decision Support
 
@@ -71,13 +73,14 @@ Rather than acting as a one-click mixer, the system is designed as a production 
 
 ## Example Workflow
 
-1. Enter a vocal style description or choose a preset.
-2. Select the target DAW so the system can recommend practical plugin equivalents.
-3. Set intensity to control how aggressively the chain shapes tone, dynamics, and ambience.
-4. Generate the chain to receive EQ, compression, and FX recommendations.
-5. Review the annotated EQ curve, signal-flow summary, and parameter blocks.
-6. Export the chain as text or JSON for session notes, recall, or implementation.
-7. Rebuild the chain inside the DAW, then refine by ear for the specific performer and arrangement.
+1. Create or resume a song project.
+2. Define the creative intent and protected moments.
+3. Develop lyrics and record feedback decisions.
+4. Load a raw vocal for local evidence-based analysis when available.
+5. Open Vocal Architect to review, reorder, and refine the generated chain.
+6. Switch between Guided and Advanced detail without changing the underlying recommendation.
+7. Preview supported EQ and dynamics, then export text or JSON.
+8. Review project readiness and next actions.
 
 ## Production Use Case
 
@@ -97,6 +100,12 @@ AI Vocal Architect is best positioned as a pre-mix decision tool. It helps engin
 - Better chain auditioning with multiband and serial/parallel processing models
 - Expanded AI interpretation for genre hybrids and artist-reference prompts
 - Preset versioning, shareable chain snapshots, and collaborative export workflows
+
+## Product Direction
+
+The next product milestone is an evidence-based recording workflow: `Analyze → Recommend → Process → Validate`. The [Recording Analysis Specification](docs/recording-analysis-spec.md) defines the first measurable analysis contract.
+
+See [Implementation Architecture](docs/implementation-architecture.md) for the component hierarchy, state model, extension points, limitations, and recommended milestones.
 
 ## Status
 
