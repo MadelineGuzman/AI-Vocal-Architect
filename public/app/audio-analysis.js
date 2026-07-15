@@ -128,7 +128,7 @@ async function decodeAudioFile(file, existingContext) {
   await context.resume();
   const bytes = await file.arrayBuffer();
   const buffer = await context.decodeAudioData(bytes.slice(0));
-  return { context, bytes, buffer };
+  return { context, buffer };
 }
 
 window.CadenzaiAnalysis = { ANALYSIS_SCHEMA_VERSION, ANALYZER_VERSION, analyzeAudioBuffer, decodeAudioFile };

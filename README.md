@@ -110,3 +110,10 @@ See [Implementation Architecture](docs/implementation-architecture.md) for the c
 ## Status
 
 This project is an active exploration of AI-assisted vocal production design. It is intended to demonstrate how engineering systems, interactive tooling, and AI-guided decision support can work together inside a modern audio workflow.
+
+Run the dependency-free release smoke checks before deployment:
+
+```powershell
+node tests/release-smoke.mjs
+npx.cmd wrangler deploy --dry-run
+```

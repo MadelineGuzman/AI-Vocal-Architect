@@ -51,7 +51,7 @@ a { color: var(--cyan); }
 .nav { flex: 1; overflow: auto; padding: 14px 12px; }
 .nav-label, .eyebrow { color: var(--quiet); font: 10px var(--font-mono); letter-spacing: .16em; text-transform: uppercase; }
 .nav-label { padding: 8px 12px 6px; }
-.nav-button { width: 100%; display: flex; align-items: center; gap: 11px; padding: 9px 12px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: #9aa4bd; font-size: 13px; cursor: pointer; text-align: left; }
+.nav-button { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 11px; padding: 9px 12px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: #9aa4bd; font-size: 13px; cursor: pointer; text-align: left; }
 .nav-button:hover { background: rgba(90,216,255,.04); color: var(--text); }
 .nav-button.active { border-color: rgba(90,216,255,.25); background: rgba(90,216,255,.08); color: var(--text); }
 .nav-icon { width: 18px; text-align: center; }
@@ -70,10 +70,10 @@ a { color: var(--cyan); }
 .mode { display: flex; align-items: center; gap: 8px; }
 .mode-label { color: var(--quiet); font: 9.5px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
 .mode-toggle { display: flex; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: rgba(16,20,29,.9); }
-.mode-toggle button { padding: 6px 14px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-size: 11.5px; cursor: pointer; }
+.mode-toggle button { min-height: 44px; padding: 6px 14px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-size: 11.5px; cursor: pointer; }
 .mode-toggle button.active { background: linear-gradient(120deg,var(--cyan),#6c7cff); color: var(--ground); font-weight: 600; }
 .avatar { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; background: linear-gradient(135deg,#2a3358,#13213d); color: var(--gold-bright); font-family: var(--font-display); }
-.mobile-menu { display: none; border: 0; background: transparent; font-size: 20px; }
+.mobile-menu { display: none; width: 44px; height: 44px; border: 0; background: transparent; font-size: 20px; }
 .page { max-width: 1120px; margin: 0 auto; padding: 34px 30px 80px; }
 .page.narrow { max-width: 780px; }
 .page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
@@ -85,7 +85,7 @@ h3 { font-weight: 500; font-size: 15px; }
 .lede { max-width: 64ch; margin: 6px 0 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
 .section-label { margin-bottom: 12px; color: var(--muted); font: 10px var(--font-mono); letter-spacing: .16em; text-transform: uppercase; }
 
-.button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 38px; padding: 9px 15px; border: 1px solid var(--line-strong); border-radius: 10px; background: transparent; color: var(--text-soft); font-size: 12.5px; cursor: pointer; text-decoration: none; }
+.button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 9px 15px; border: 1px solid var(--line-strong); border-radius: 10px; background: transparent; color: var(--text-soft); font-size: 12.5px; cursor: pointer; text-decoration: none; }
 .button:hover { border-color: rgba(90,216,255,.35); color: var(--text); }
 .button.primary { border: 0; background: linear-gradient(120deg,var(--cyan),#6c7cff); color: var(--ground); font-weight: 600; }
 .button.gold { border-color: rgba(205,168,94,.4); background: linear-gradient(160deg,rgba(205,168,94,.16),rgba(205,168,94,.05)); color: #f3e2b8; }
@@ -134,7 +134,7 @@ h3 { font-weight: 500; font-size: 15px; }
 
 .workspace-layout { display: grid; grid-template-columns: 210px minmax(0,1fr); gap: 24px; max-width: 1240px; margin: 0 auto; padding: 26px 30px 80px; }
 .stage-nav { position: sticky; top: 86px; align-self: start; padding: 10px; }
-.stage-button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--text-soft); cursor: pointer; text-align: left; }
+.stage-button { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--text-soft); cursor: pointer; text-align: left; }
 .stage-button.active { border-color: rgba(90,216,255,.25); background: rgba(90,216,255,.08); color: var(--text); }
 .stage-button.future { color: #6b7488; }
 .stage-number { width: 26px; color: var(--muted); font: 10px var(--font-mono); }
@@ -168,7 +168,7 @@ h3 { font-weight: 500; font-size: 15px; }
 .readout strong, .metric strong { display: block; margin-top: 6px; font-size: 14px; font-weight: 400; }
 input[type="range"] { accent-color: var(--cyan); }
 .preset-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; margin-top: 14px; }
-.preset-chip { white-space: nowrap; padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
+.preset-chip { min-height: 44px; white-space: nowrap; padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
 .preset-chip.active { border-color: rgba(205,168,94,.4); color: var(--gold-bright); background: rgba(205,168,94,.06); }
 .signal-flow { display: flex; align-items: center; gap: 8px; overflow-x: auto; margin-top: 16px; padding: 14px 16px; }
 .signal-node { white-space: nowrap; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(16,20,29,.6); color: var(--text-soft); font: 10.5px var(--font-mono); }
@@ -182,7 +182,7 @@ input[type="range"] { accent-color: var(--cyan); }
 .chain-title h3 { margin: 0; font-size: 14.5px; font-weight: 400; }
 .chain-title p { margin: 3px 0 0; color: var(--muted); font-size: 11.5px; }
 .order-buttons { display: flex; gap: 4px; }
-.icon-button { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; }
+.icon-button { width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 9px; background: transparent; color: var(--muted); cursor: pointer; }
 .chain-detail { display: grid; gap: 14px; margin: 0 16px 18px 60px; padding-top: 14px; border-top: 1px solid rgba(150,170,220,.08); }
 .detail-label { margin-bottom: 5px; color: var(--teal); font: 9px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
 .chain-detail p { margin: 0; color: var(--text-soft); font-size: 13.5px; line-height: 1.6; }
