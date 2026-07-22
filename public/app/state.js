@@ -4,9 +4,11 @@
 const STORAGE_KEY = "syzygy_cadenzai_state_v1";
 
 const now = () => new Date().toISOString();
+let fallbackId = 0;
+const makeId = prefix => globalThis.crypto?.randomUUID ? `${prefix}-${globalThis.crypto.randomUUID()}` : `${prefix}-${Date.now()}-${fallbackId++}`;
 
 function createProject(input = {}) {
-  const id = input.id || `project-${Date.now()}`;
+  const id = input.id || makeId("project");
   return {
     id,
     metadata: {
@@ -46,6 +48,29 @@ function createProject(input = {}) {
       chainOrder: input.session?.chainOrder || ["cleanup", "eq", "compression", "deesser", "saturation", "delay", "reverb"],
       lyricDecisions: input.session?.lyricDecisions || {}
     }
+  };
+}
+
+// A Spark is a captured idea. It is a self-contained, portable record (safe to
+// export as a file and sync to Drive/iCloud later) built from the melody
+// analyzer's read. Raw audio lives in IndexedDB, referenced by audioRef.
+function createSpark(input = {}) {
+  const analysis = input.analysis || {};
+  const createdAt = input.createdAt || now();
+  const id = input.id || makeId("spark");
+  return {
+    schemaVersion: analysis.schemaVersion || "0.1.0",
+    analyzerVersion: analysis.analyzerVersion || "unknown",
+    id,
+    createdAt,
+    title: input.title || `Untitled idea · ${new Date(createdAt).toLocaleDateString()}`,
+    note: input.note || "",
+    durationSeconds: analysis.durationSeconds ?? 0,
+    capture: { kind: input.kind || "hum", sampleRateHz: input.sampleRateHz || null },
+    musical: analysis.musical || { key: { value: null, confidence: 0 }, tempo: { value: null, confidence: 0 }, noteSequence: [] },
+    read: analysis.read || { inference: "inconclusive", confidence: 0, evidence: [], limitations: [] },
+    audioRef: input.audioRef || null,
+    promotedProjectId: input.promotedProjectId || null
   };
 }
 
@@ -99,6 +124,7 @@ const seedState = () => ({
   version: 1,
   user: { displayName: "Rara", initials: "R" },
   preferences: { mode: "guided" },
+  ideas: [],
   projects: [
     sampleProject,
     createProject({ id: "paper-satellites", title: "Paper Satellites", artist: "Neon Liturgy", genre: "Cinematic pop", readiness: "Needs Development", currentStage: "lyrics" }),
@@ -110,7 +136,10 @@ function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("syzygy_opus_state_v1");
     const parsed = JSON.parse(raw);
-    if (parsed?.version === 1 && Array.isArray(parsed.projects)) return parsed;
+    if (parsed?.version === 1 && Array.isArray(parsed.projects)) {
+      if (!Array.isArray(parsed.ideas)) parsed.ideas = [];
+      return parsed;
+    }
   } catch (error) {
     console.warn("Unable to restore Cadenzai state", error);
   }
@@ -120,9 +149,9 @@ function loadState() {
 function createStore() {
   let state = loadState();
   const listeners = new Set();
-  const persist = () => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-    catch (error) { console.warn("Cadenzai could not persist local project state", error); }
+  const persist = next => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); return true; }
+    catch (error) { console.warn("Cadenzai could not persist local project state", error); return false; }
   };
   const notify = () => listeners.forEach(listener => listener(state));
 
@@ -132,12 +161,13 @@ function createStore() {
     update(mutator) {
       const next = structuredClone(state);
       mutator(next);
+      if (!persist(next)) return false;
       state = next;
-      persist();
       notify();
+      return true;
     },
     addProject(project) {
-      this.update(next => next.projects.unshift(project));
+      return this.update(next => next.projects.unshift(project));
     },
     updateProject(projectId, mutator) {
       this.update(next => {
@@ -146,9 +176,50 @@ function createStore() {
         mutator(project);
         project.metadata.updatedAt = now();
       });
+    },
+    addSpark(spark) {
+      return this.update(next => { if (!Array.isArray(next.ideas)) next.ideas = []; next.ideas.unshift(spark); });
+    },
+    removeSpark(sparkId) {
+      return this.update(next => { next.ideas = (next.ideas || []).filter(item => item.id !== sparkId); });
+    },
+    updateSpark(sparkId, mutator) {
+      return this.update(next => { const spark = (next.ideas || []).find(item => item.id === sparkId); if (spark) mutator(spark); });
+    },
+    // Save first, promote later: turn a saved Spark into a project seeded with its title and key.
+    promoteSparkToProject(sparkId) {
+      let created = null;
+      const saved = this.update(next => {
+        const spark = (next.ideas || []).find(item => item.id === sparkId);
+        if (!spark) return;
+        if (spark.promotedProjectId) {
+          created = next.projects.find(item => item.id === spark.promotedProjectId) || null;
+          if (created) return;
+        }
+        created = createProject({ title: spark.title, currentStage: "intent" });
+        created.assets.push({
+          type: "idea-spark",
+          name: spark.title,
+          sparkId: spark.id,
+          addedAt: now(),
+          snapshot: structuredClone({
+            schemaVersion: spark.schemaVersion,
+            analyzerVersion: spark.analyzerVersion,
+            durationSeconds: spark.durationSeconds,
+            capture: spark.capture,
+            musical: spark.musical,
+            read: spark.read,
+            audioRef: spark.audioRef
+          })
+        });
+        next.projects.unshift(created);
+        spark.promotedProjectId = created.id;
+      });
+      if (!saved) created = null;
+      return created;
     }
   };
 }
 
-window.CadenzaiState = { STORAGE_KEY, createProject, sampleProject, loadState, createStore };
+window.CadenzaiState = { STORAGE_KEY, createProject, createSpark, sampleProject, loadState, createStore };
 })();

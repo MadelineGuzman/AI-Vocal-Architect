@@ -8,6 +8,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const read = relative => fs.readFileSync(path.join(root, relative), "utf8")
 
 function loadBrowserModule(relative) {
+  const storage = new Map()
   const context = vm.createContext({
     window: {},
     globalThis: { crypto: { randomUUID: () => "test-analysis-id" } },
@@ -19,7 +20,9 @@ function loadBrowserModule(relative) {
     Object,
     Array,
     Number,
-    String
+    String,
+    structuredClone,
+    localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) }
   })
   vm.runInContext(read(relative), context, { filename: relative })
   return context.window
@@ -59,8 +62,35 @@ assert.equal(report.source.fileName, "smoke.wav")
 assert.ok(report.qualityScore >= 0 && report.qualityScore <= 100)
 assert.ok(Number.isFinite(report.measurements.peakDbfs))
 
+const state = loadBrowserModule("public/app/state.js").CadenzaiState
+assert.ok(state.createSpark, "state should expose createSpark")
+const spark = state.createSpark({
+  kind: "hum",
+  analysis: {
+    schemaVersion: "0.1.0",
+    analyzerVersion: "melody-dsp-0.1.0",
+    durationSeconds: 4.2,
+    musical: { key: { value: "C major", confidence: 0.6 }, tempo: { value: null, confidence: 0 }, noteSequence: [{ midi: 60, startSec: 0, durSec: 0.5 }] },
+    read: { inference: "chorus-like", confidence: 0.4, evidence: ["Wide range"], limitations: ["Short clip"] }
+  }
+})
+assert.ok(spark.id && spark.createdAt && spark.title, "spark has id, timestamp, title")
+assert.equal(spark.read.inference, "chorus-like")
+assert.equal(spark.musical.key.value, "C major")
+assert.equal(spark.audioRef, null, "spark audioRef defaults to null until audio is stored")
+
+const sparkStore = state.createStore()
+spark.audioRef = { store: "indexeddb", key: spark.id }
+assert.equal(sparkStore.addSpark(spark), true, "spark should persist")
+const firstPromotion = sparkStore.promoteSparkToProject(spark.id)
+const secondPromotion = sparkStore.promoteSparkToProject(spark.id)
+assert.ok(firstPromotion, "spark should promote to a project")
+assert.equal(secondPromotion.id, firstPromotion.id, "promotion should be idempotent")
+assert.equal(sparkStore.getState().projects.filter(item => item.id === firstPromotion.id).length, 1)
+assert.deepEqual(firstPromotion.assets[0].snapshot.musical, spark.musical, "promoted project keeps a portable musical snapshot")
+
 const indexHtml = read("public/index.html")
-for (const asset of ["./styles.css", "./assets/logo-mark.svg", "./app/state.js", "./app/recommendation-engine.js", "./app/audio-analysis.js", "./app/app.js"]) {
+for (const asset of ["./styles.css", "./assets/logo-mark.svg", "./app/state.js", "./app/recommendation-engine.js", "./app/audio-analysis.js", "./app/melody-analysis.js", "./app/audio-store.js", "./app/app.js"]) {
   assert.ok(indexHtml.includes(asset), `Missing asset reference: ${asset}`)
   assert.ok(fs.existsSync(path.join(root, "public", asset.replace(/^\.\//, ""))), `Missing asset file: ${asset}`)
 }

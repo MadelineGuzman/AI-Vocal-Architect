@@ -1,9 +1,11 @@
 (function () {
 "use strict";
 
-const { createProject, createStore } = window.CadenzaiState;
+const { createProject, createSpark, createStore } = window.CadenzaiState;
 const { PRESET_OPTIONS, generateChain, chainToText } = window.CadenzaiRecommendation;
 const { analyzeAudioBuffer, decodeAudioFile } = window.CadenzaiAnalysis;
+const { analyzeMelodyBuffer, decodeAudioBlob } = window.CadenzaiMelody;
+const audioStore = window.CadenzaiAudioStore;
 
 const store = createStore();
 const root = document.getElementById("app");
@@ -16,6 +18,18 @@ let playbackTimer = null;
 let playbackStartedAt = 0;
 let playbackOffset = 0;
 let mobileNavOpen = false;
+
+// Hum-to-Spark capture state (transient — a pending idea before it is saved).
+const CAPTURE_MAX_SECONDS = 30;
+let mediaRecorder = null;
+let mediaStream = null;
+let captureChunks = [];
+let captureState = "idle"; // idle | recording | analyzing | result
+let capturePreview = null; // { analysis, blob, objectUrl, sampleRateHz }
+let captureError = "";
+let captureTimer = null;
+let captureStartedAt = 0;
+let captureSession = 0;
 
 const stages = [
   ["overview", "00", "Overview", "live"],
@@ -45,6 +59,7 @@ const navigate = route => { location.hash = route.startsWith("#") ? route.slice(
 function parseRoute() {
   const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
   if (!parts.length || parts[0] === "dashboard") return { view: "dashboard" };
+  if (parts[0] === "capture") return { view: "capture" };
   if (parts[0] === "new") return { view: "create", step: Number(parts[1] || 0) };
   if (parts[0] === "project") return { view: "project", projectId: decodeURIComponent(parts[1] || ""), stage: parts[2] || "overview" };
   return { view: "dashboard" };
@@ -66,6 +81,7 @@ function shell(content, route) {
       <nav class="nav">
         <div class="nav-label">Workspace</div>
         ${navButton("dashboard", "◧", "Dashboard", route.view === "dashboard")}
+        ${navButton("capture", "🎙", "Capture Idea", route.view === "capture")}
         ${navButton("projects", "❖", "Projects", route.view === "dashboard", projectCount)}
         ${navButton("current-project", "✦", "Current Project", route.view === "project", "")}
         ${navButton("architect", "⚡", "Vocal Architect", route.view === "project" && route.stage === "chain")}
@@ -96,7 +112,8 @@ function dashboard() {
   const state = store.getState();
   const active = state.projects[0];
   return `<div class="page">
-    <div class="page-heading"><div><div class="eyebrow">Dashboard</div><h1>Good evening, ${escapeHtml(state.user.displayName)}.</h1><p class="lede">${state.projects.length} projects in motion. One is waiting on you.</p></div><button class="button gold" data-action="new-project">＋ New Project</button></div>
+    <div class="page-heading"><div><div class="eyebrow">Dashboard</div><h1>Good evening, ${escapeHtml(state.user.displayName)}.</h1><p class="lede">${state.projects.length} projects in motion. One is waiting on you.</p></div><div class="button-row"><button class="button primary" data-action="capture">🎙 Capture idea</button><button class="button gold" data-action="new-project">＋ New Project</button></div></div>
+    ${timelineSection(state)}
     <section class="card feature-card">
       <div class="feature-content"><div><div class="section-label" style="color:var(--teal)">Continue where you stopped</div><div class="project-title">${escapeHtml(active.metadata.title)}</div><div class="meta">${escapeHtml(active.metadata.artist)} · ${escapeHtml(active.metadata.genre)} · ${escapeHtml(active.metadata.daw)}</div><div class="button-row" style="margin-top:14px"><span class="pill gold">Stage · ${escapeHtml(stageName(active.metadata.currentStage))}</span><span class="pill teal">${escapeHtml(active.metadata.readiness)}</span></div></div><div class="button-row"><button class="button primary" data-action="open-project" data-project="${active.id}" data-stage="${active.metadata.currentStage}">Resume session →</button><button class="button" data-action="open-project" data-project="${active.id}" data-stage="review">View project review</button></div></div>
       <div class="stage-strip">${stages.filter(item => item[0] !== "overview").map(item => `<div class="stage-strip-item ${item[0] === active.metadata.currentStage ? "current" : ""}"><small>${item[1]}</small><span>${item[2].replace("Creative ", "").replace("Vocal ", "")}</span></div>`).join("")}</div>
@@ -104,6 +121,64 @@ function dashboard() {
     <div class="dashboard-grid"><section><div class="section-label">Your projects</div><div class="project-list">${state.projects.map(projectCard).join("")}</div></section>
     <section><div class="section-label">Needs your attention</div><div class="card"><button class="attention-item" data-action="open-project" data-project="${active.id}" data-stage="lyrics">${certainty("Creative")}<p>Verse 1 lines 3–4 restate the same idea — one open suggestion can advance the story.</p></button><button class="attention-item" data-action="open-project" data-project="${active.id}" data-stage="chain">${certainty("Technical")}<p>Vocal chain drafted. Confirm the de-ess amount before tracking layered finals.</p></button><button class="attention-item" data-action="open-project" data-project="${active.id}" data-stage="recording">${certainty(active.analysis ? "Measured" : "Confirm")}<p>${active.analysis ? `Recording analysis available · quality ${active.analysis.qualityScore}/100.` : "Add a raw vocal to unlock evidence-based recording analysis."}</p></button></div></section></div>
   </div>`;
+}
+
+const readShort = read => read.inference === "chorus-like" ? "Chorus-like" : read.inference === "verse-like" ? "Verse-like" : "Ambiguous";
+const confidenceLabel = value => `${Math.round((value || 0) * 100)}% confidence`;
+function inferenceHeadline(read) {
+  if (read.inference === "chorus-like") return "This melody has some chorus-like traits.";
+  if (read.inference === "verse-like") return "This melody has some verse-like traits.";
+  if (!read.evidence?.length || read.confidence === 0) return "I couldn't hear a clear pitched melody.";
+  return "I hear a melody, but its shape is ambiguous.";
+}
+
+function timelineSection(state) {
+  const ideas = state.ideas || [];
+  return `<section style="margin-top:22px"><div class="section-label">Inspiration Timeline</div>${ideas.length
+    ? `<div class="project-list">${ideas.map(sparkCard).join("")}</div>`
+    : `<div class="card padded"><p class="lede" style="margin:0">No captured ideas yet. Hum, sing, or beatbox something and Cadenzai will read it and keep it here — nothing gets lost.</p><div class="button-row" style="margin-top:12px"><button class="button primary" data-action="capture">🎙 Capture your first idea</button></div></div>`}</section>`;
+}
+
+function sparkCard(spark) {
+  const read = spark.read || { inference: "inconclusive", confidence: 0, evidence: [], limitations: [] };
+  const key = spark.musical?.key;
+  const tempo = spark.musical?.tempo;
+  const chips = [];
+  if (key?.value) chips.push(`<span class="pill teal">${escapeHtml(key.value)}</span>`);
+  if (Number.isFinite(Number(tempo?.value))) chips.push(`<span class="pill">~${escapeHtml(Number(tempo.value))} BPM</span>`);
+  chips.push(`<span class="pill gold">${escapeHtml(readShort(read))}</span>`);
+  const safeSparkId = escapeHtml(spark.id);
+  return `<article class="card padded spark-card"><div class="button-row" style="align-items:flex-start"><div style="flex:1"><strong>${escapeHtml(spark.title)}</strong><div class="meta" style="margin-top:3px">${escapeHtml(inferenceHeadline(read))} · ${escapeHtml(confidenceLabel(read.confidence))}</div><div class="button-row" style="margin-top:8px">${chips.join("")}</div></div><span class="meta">${escapeHtml(new Date(spark.createdAt).toLocaleDateString())}</span></div><div class="button-row" style="margin-top:12px">${spark.audioRef ? `<button class="button" data-action="play-spark" data-spark="${safeSparkId}">▷ Play</button>` : `<span class="meta">Audio not stored</span>`}${spark.promotedProjectId ? `<button class="button" data-action="open-project" data-project="${escapeHtml(spark.promotedProjectId)}" data-stage="intent">Open project →</button>` : `<button class="button primary" data-action="promote-spark" data-spark="${safeSparkId}">Start project →</button>`}<span style="flex:1"></span><button class="button" data-action="delete-spark" data-spark="${safeSparkId}">Delete</button></div></article>`;
+}
+
+function captureView() {
+  let body;
+  if (captureState === "recording") {
+    body = `<div class="card padded" style="text-align:center"><div class="eyebrow" style="color:var(--alert)">● Recording</div><div id="capture-timer" style="font-size:34px;margin:10px 0">0.0s</div><p class="lede" style="margin:0 auto 16px">Hum, sing, or beatbox your idea. Stop when you're done (auto-stops at ${CAPTURE_MAX_SECONDS}s).</p><button class="button gold" data-action="capture-stop">■ Stop &amp; read</button></div>`;
+  } else if (captureState === "analyzing") {
+    body = `<div class="card padded" style="text-align:center"><div class="eyebrow" style="color:var(--teal)">Listening…</div><p class="lede" style="margin:10px auto 0">Reading your melody — key, shape, and section traits.</p></div>`;
+  } else if (captureState === "result" && capturePreview) {
+    body = sparkResultCard(capturePreview);
+  } else {
+    body = `<div class="card padded" style="text-align:center"><div class="future-icon">🎙</div><h2 style="margin:6px 0">Capture an idea before it disappears</h2><p class="lede" style="margin:0 auto 18px">Press record and hum, sing, or beatbox. Cadenzai listens locally, tells you what it hears, and keeps it in your timeline.</p><button class="button primary" data-action="capture-start">● Start recording</button>${captureError ? `<p class="meta" style="color:var(--alert);margin-top:14px">${escapeHtml(captureError)}</p>` : ""}</div>`;
+  }
+  return `<div class="page narrow"><button class="button" data-action="dashboard">← Dashboard</button><div style="margin-top:20px"><div class="eyebrow">Capture</div><h1>Hum-to-Spark</h1><p class="lede">Your idea is analyzed on this device. Nothing is uploaded. Saving keeps it in this browser on this device.</p></div><div style="margin-top:18px">${body}</div></div>`;
+}
+
+function sparkResultCard(preview) {
+  const analysis = preview.analysis;
+  const read = analysis.read;
+  const key = analysis.musical.key;
+  const tempo = analysis.musical.tempo;
+  const facts = [
+    ["Read", readShort(read)],
+    ["Confidence", `${Math.round(read.confidence * 100)}%`],
+    ["Key", key.value ? `${key.value} (${Math.round(key.confidence * 100)}%)` : "Unclear"],
+    ["Tempo", tempo.value ? `~${tempo.value} BPM` : "No steady pulse"],
+    ["Notes", `${analysis.musical.noteSequence.length}`],
+    ["Length", `${analysis.durationSeconds.toFixed(1)}s`]
+  ];
+  return `<section class="card analysis-panel"><div class="analysis-head"><div><div class="eyebrow" style="color:var(--teal)">Cadenzai's read</div><div class="meta">${escapeHtml(analysis.analyzerVersion)} · local processing</div></div><span class="pill gold">${escapeHtml(readShort(read))}</span></div><h2 style="margin:6px 0 2px">${escapeHtml(inferenceHeadline(read))}</h2><p class="meta" style="margin:0 0 12px">${escapeHtml(confidenceLabel(read.confidence))}</p>${preview.objectUrl ? `<audio controls preload="metadata" src="${escapeHtml(preview.objectUrl)}" style="width:100%;margin-bottom:14px"></audio>` : ""}<div class="metrics">${facts.map(([label, value]) => `<div class="metric"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></div>`).join("")}</div><div style="margin-top:14px"><div class="detail-label">Why</div><ul style="margin:6px 0 0">${read.evidence.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>${read.limitations.length ? `<p class="meta" style="margin:12px 0 0">${escapeHtml(read.limitations.join(" "))}</p>` : ""}${captureError ? `<p class="meta" style="color:var(--alert);margin:12px 0 0">${escapeHtml(captureError)}</p>` : ""}<div class="button-row" style="margin-top:18px"><button class="button gold" data-action="save-spark">Save to timeline</button><button class="button" data-action="capture-start">Re-record</button><button class="button" data-action="discard-spark">Discard</button></div></section>`;
 }
 
 function projectCard(project) {
@@ -218,6 +293,7 @@ function render() {
   const route = parseRoute();
   let content;
   if (route.view === "dashboard") content = dashboard();
+  else if (route.view === "capture") content = captureView();
   else if (route.view === "create") content = createPage(route.step);
   else {
     const project = projectById(route.projectId);
@@ -270,6 +346,14 @@ root.addEventListener("click", async event => {
   else if (action === "play") await playAudio(projectId, target.dataset.mode);
   else if (action === "stop") stopAudio();
   else if (action === "scrub") await scrubAudio(projectId, event, target);
+  else if (action === "capture") navigate("#/capture");
+  else if (action === "capture-start") await startCapture();
+  else if (action === "capture-stop") stopCaptureRecording();
+  else if (action === "save-spark") await saveSpark();
+  else if (action === "discard-spark") discardCapture();
+  else if (action === "promote-spark") promoteSpark(target.dataset.spark);
+  else if (action === "play-spark") await playSparkAudio(target.dataset.spark);
+  else if (action === "delete-spark") await deleteSpark(target.dataset.spark);
 });
 
 root.addEventListener("input", event => {
@@ -409,7 +493,160 @@ async function scrubAudio(projectId, event, track) {
   await playAudio(projectId,activeMode,ratio*cached.buffer.duration);
 }
 
-window.addEventListener("hashchange", () => { mobileNavOpen=false; render(); });
+// ---- Hum-to-Spark capture ----
+
+function clearCaptureTimer() { if (captureTimer) { clearInterval(captureTimer); captureTimer = null; } }
+
+function resetCaptureState() {
+  captureSession++;
+  clearCaptureTimer();
+  const recorder = mediaRecorder;
+  if (recorder) {
+    recorder.ondataavailable = null;
+    recorder.onstop = null;
+    recorder.onerror = null;
+    if (recorder.state !== "inactive") { try { recorder.stop(); } catch {} }
+  }
+  if (mediaStream) { mediaStream.getTracks().forEach(track => track.stop()); mediaStream = null; }
+  mediaRecorder = null;
+  captureChunks = [];
+  if (capturePreview?.objectUrl) { try { URL.revokeObjectURL(capturePreview.objectUrl); } catch {} }
+  capturePreview = null;
+  captureState = "idle";
+}
+
+function discardCapture() { resetCaptureState(); captureError = ""; render(); }
+
+async function startCapture() {
+  resetCaptureState();
+  const session = captureSession;
+  captureError = "";
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+    captureError = "This browser does not support in-page recording. Try a recent Chrome, Edge, or Firefox.";
+    render();
+    return;
+  }
+  try { mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch { captureError = "Microphone access was blocked. Allow the mic in your browser and try again."; render(); return; }
+  captureChunks = [];
+  try {
+    const preferred = ["audio/webm", "audio/ogg", "audio/mp4"].find(type => { try { return MediaRecorder.isTypeSupported(type); } catch { return false; } });
+    try { mediaRecorder = new MediaRecorder(mediaStream, preferred ? { mimeType: preferred } : undefined); }
+    catch { mediaRecorder = new MediaRecorder(mediaStream); }
+    mediaRecorder.ondataavailable = event => { if (session === captureSession && event.data && event.data.size) captureChunks.push(event.data); };
+    mediaRecorder.onstop = () => handleCaptureStop(session);
+    mediaRecorder.onerror = () => failCapture(session, "Recording stopped because the browser reported a microphone error.");
+    for (const track of mediaStream.getTracks()) track.onended = () => {
+      if (session === captureSession && mediaRecorder?.state === "recording") failCapture(session, "The microphone became unavailable during recording.");
+    };
+    mediaRecorder.start();
+  } catch (error) {
+    failCapture(session, `Recording could not start: ${error.message || error}`);
+    return;
+  }
+  captureState = "recording";
+  captureStartedAt = Date.now();
+  render();
+  captureTimer = setInterval(() => {
+    const elapsed = (Date.now() - captureStartedAt) / 1000;
+    const label = document.getElementById("capture-timer");
+    if (label) label.textContent = `${elapsed.toFixed(1)}s`;
+    if (elapsed >= CAPTURE_MAX_SECONDS) stopCaptureRecording();
+  }, 100);
+}
+
+function failCapture(session, message) {
+  if (session !== captureSession) return;
+  resetCaptureState();
+  captureError = message;
+  render();
+}
+
+function stopCaptureRecording() {
+  clearCaptureTimer();
+  if (mediaRecorder && mediaRecorder.state !== "inactive") { try { mediaRecorder.stop(); } catch {} }
+  if (mediaStream) { mediaStream.getTracks().forEach(track => track.stop()); mediaStream = null; }
+}
+
+async function handleCaptureStop(session) {
+  if (session !== captureSession) return;
+  captureState = "analyzing";
+  render();
+  try {
+    const type = captureChunks[0]?.type || "audio/webm";
+    const blob = new Blob(captureChunks, { type });
+    if (!blob.size) throw new Error("no audio was captured");
+    const decoded = await decodeAudioBlob(blob, audioContext);
+    if (session !== captureSession) return;
+    audioContext = decoded.context;
+    const analysis = analyzeMelodyBuffer(decoded.buffer);
+    capturePreview = { analysis, blob, sampleRateHz: decoded.buffer.sampleRate, objectUrl: URL.createObjectURL(blob) };
+    captureState = "result";
+  } catch (error) {
+    if (session !== captureSession) return;
+    captureError = `Could not read that recording: ${error.message || error}`;
+    captureState = "idle";
+  }
+  render();
+}
+
+async function saveSpark() {
+  if (!capturePreview) return;
+  const spark = createSpark({ analysis: capturePreview.analysis, kind: "hum", sampleRateHz: capturePreview.sampleRateHz });
+  try { spark.audioRef = await audioStore.putAudio(spark.id, capturePreview.blob); }
+  catch (error) {
+    captureError = `This recording could not be saved on this device: ${error.message || error}`;
+    render();
+    return;
+  }
+  if (!store.addSpark(spark)) {
+    try { await audioStore.deleteAudio(spark.id); } catch {}
+    captureError = "The recording was captured, but its Spark metadata could not be saved. Check browser storage and try again.";
+    render();
+    return;
+  }
+  resetCaptureState();
+  navigate("#/dashboard");
+}
+
+function promoteSpark(sparkId) {
+  const project = store.promoteSparkToProject(sparkId);
+  if (project) navigate(routeFor(project.id, "intent"));
+}
+
+async function deleteSpark(sparkId) {
+  const spark = store.getState().ideas.find(item => item.id === sparkId);
+  if (!spark || !store.removeSpark(sparkId)) return;
+  if (spark.audioRef?.key && !spark.promotedProjectId) {
+    try { await audioStore.deleteAudio(spark.audioRef.key); }
+    catch (error) { console.warn("Spark metadata was removed but its local audio could not be deleted", error); }
+  }
+}
+
+async function playSparkAudio(sparkId) {
+  const spark = store.getState().ideas.find(item => item.id === sparkId);
+  if (!spark?.audioRef?.key) { alert("No stored audio for this idea."); return; }
+  try {
+    const blob = await audioStore.getAudio(spark.audioRef.key);
+    if (!blob) { alert("Stored audio could not be found."); return; }
+    const decoded = await decodeAudioBlob(blob, audioContext);
+    audioContext = decoded.context;
+    if (activeSource) { try { activeSource.stop(); } catch {} }
+    await audioContext.resume();
+    const source = audioContext.createBufferSource();
+    source.buffer = decoded.buffer;
+    source.connect(audioContext.destination);
+    source.start(0);
+    activeSource = source;
+    activeMode = null;
+  } catch (error) { alert(`Playback failed: ${error.message || error}`); }
+}
+
+window.addEventListener("hashchange", () => {
+  mobileNavOpen = false;
+  if (parseRoute().view !== "capture" && captureState !== "idle") resetCaptureState();
+  render();
+});
 store.subscribe(render);
 if (!location.hash) location.hash = "#/dashboard";
 render();
