@@ -50,7 +50,7 @@ The pre-consolidation TypeScript check and production build passed. Melody tests
 
 The existing tests primarily cover the earlier browser modules. They are not end-to-end coverage of the new React application, microphone capture, IndexedDB persistence, valid Cloudflare login, or paid Gemini calls.
 
-GitHub Pages was verified to publish `main` from `/`. Consolidation therefore uses `feature/google-ai-studio-overhaul`; merging into `main` is a release action, not folder maintenance. The duplicate GitHub repository remains a historical import until AI Studio's connection is verified and redirected; local development should push only to `origin` (the original repository).
+GitHub Pages was verified to publish `main` from `/`. Consolidation therefore uses `feature/google-ai-studio-overhaul`; merging into `main` is a release action, not folder maintenance. The duplicate GitHub repository is archived read-only after confirming every published ref is contained in the canonical history. Local development pushes only to `origin` (the original repository). The AI Studio editor connection itself was not changed or inspected; reconnect it to the canonical repository before attempting future exports, and retain any unexported editor work.
 
 Recommended next implementation sequence:
 
@@ -63,3 +63,16 @@ Recommended next implementation sequence:
 ## Recovery
 
 Before retiring redundant folders, create a verified local Git bundle under `.local-backups/` in the canonical folder. This is an ignored recovery artifact, not another working repository. Preserve unique files using the manifest and verify the consolidated commit before removing the linked worktree. Historical source remains accessible with `git show <commit>:<path>`.
+
+## Verified consolidation outcome
+
+- Source consolidation commit: `52778b0`, pushed to the original repository's rebuild branch.
+- Canonical folder: `Cadenzai`; only one registered live worktree remains.
+- `npm run typecheck`, all three `npm test` suites, and `npm run build` passed from that folder after dependency paths were repaired for the move.
+- Both recovery Git bundles were verified. They and the original artwork copies are stored locally under `.local-backups/2026-09-16-consolidation/` and are intentionally not pushed.
+- The separate `AI Vocal Architect` prototype folder was retired after checksum verification.
+- The duplicate GitHub repository is archived; the original repository is the only configured remote.
+- The old `Cadenzai-google-overhaul` checkout and its Git registration are gone. Windows may retain its empty directory while the Codex task that started there holds it open. It contains no source and can be removed after closing that task.
+- `main`, GitHub Pages configuration, and live hosting were not changed.
+
+No browser-stored projects/recordings, hosted credentials or unexported AI Studio editor changes were migrated by this filesystem consolidation.
