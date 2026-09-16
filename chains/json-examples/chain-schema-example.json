@@ -1,8 +1,11 @@
 {
+  "schemaVersion": "0.2.0",
   "meta": {
     "style": "aggressive rap, punchy, upfront",
     "daw": "REAPER",
-    "intensity": 8
+    "intensity": 8,
+    "analysisId": null,
+    "analyzerVersion": null
   },
   "eq": {
     "hpf_hz": 100,
@@ -31,5 +34,15 @@
     "delay_mix_pct": 24.0,
     "delay_time_ms": 250,
     "delay_feedback_pct": 49
-  }
+  },
+  "analysis": null,
+  "decisions": [
+    {
+      "stage": "tone_and_space",
+      "purpose": "creative",
+      "becauseOf": [],
+      "explanation": "Tone, dynamics, and ambience follow the selected style and intensity.",
+      "confidence": 0.9
+    }
+  ]
 }

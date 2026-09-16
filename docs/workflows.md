@@ -1,5 +1,7 @@
 # Workflows
 
+> These workflows describe the earlier Vocal Architect application. For current development commands and feature gaps, use [the README](../README.md) and [rebuild comparison](rebuild-comparison.md).
+
 ## Standard Workflow
 
 1. Choose a preset or describe the vocal style.

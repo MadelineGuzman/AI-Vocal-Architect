@@ -1,9 +1,25 @@
 name = "syzygy-vocal-architect"
 main = "worker.js"
-compatibility_date = "2026-04-25"
+compatibility_date = "2026-07-15"
+compatibility_flags = ["nodejs_compat"]
 workers_dev = true
+
+[[routes]]
+pattern = "tools.syzygyent.com/internal*"
+zone_name = "syzygyent.com"
 
 [assets]
 directory = "./public"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
+run_worker_first = true
+
+[observability]
+enabled = true
+
+[observability.logs]
+head_sampling_rate = 1
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 0.01

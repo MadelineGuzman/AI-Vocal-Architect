@@ -1,0 +1,40 @@
+{
+  "date": "2026-09-16",
+  "canonicalRepository": "https://github.com/MadelineGuzman/AI-Vocal-Architect",
+  "developmentBranch": "feature/google-ai-studio-overhaul",
+  "earlierAppCommit": "e8932ed852449993a75cce51dd773a6a3f01e5ad",
+  "googleImportCommit": "42e22dabdbfc30be92e0bbdbb2dfc5cee92b7286",
+  "integrationCommit": "690b732e4d2bada7bf9909fd25eccebd1f0e32cb",
+  "files": [
+    {
+      "source": "../AI Vocal Architect/Legacy Prototype/index.html.html",
+      "destination": "archive/legacy-prototype/index.html",
+      "sha256": "42F9BECA165D26843193BCDCFB473EF23D4C219F74A4AF6443DC893339B63C54",
+      "bytes": 60491
+    },
+    {
+      "source": "../Cadenzai/assets/visuals/Cadenzai_Logo_B.png",
+      "destination": "assets/visuals/Cadenzai_Logo_B.png",
+      "sha256": "307CB460513C2A649A35B72C570FEA34BF0ADC7F6A7B519B78FD0FC2F7152A05",
+      "bytes": 1101243
+    },
+    {
+      "source": "../Cadenzai/assets/visuals/Cadenzai_Logo_Board.jpg",
+      "destination": "assets/visuals/Cadenzai_Logo_Board.jpg",
+      "sha256": "A92C5918CC19F60DD69DF6E496D24FB07E47116F62124EF4887F15497F672A48",
+      "bytes": 3057969
+    },
+    {
+      "source": "../Cadenzai/assets/visuals/Gemini_Generated_Image_y0i3m9y0i3m9y0i3.jpg",
+      "destination": "assets/visuals/Gemini_Generated_Image_y0i3m9y0i3m9y0i3.jpg",
+      "sha256": "E87AC2E982930AE56C230363B56B0AF5F38938786AB1D4EDA6158496D142D1F7",
+      "bytes": 2969098
+    },
+    {
+      "source": "../Cadenzai/assets/visuals/Cadenzai_Logo_W.png",
+      "destination": "src/assets/branding/Cadenzai_Logo_W.png",
+      "sha256": "567BA53DAB2E5DA24BADE9EC11C41385DD93AA0494853918E400627DF9ADD196",
+      "bytes": 1254027
+    }
+  ]
+}

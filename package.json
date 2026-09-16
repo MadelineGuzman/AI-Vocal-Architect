@@ -7,6 +7,8 @@
     "dev": "tsx server.ts",
     "build": "tsc && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
+    "test": "node tests/release-smoke.mjs && node tests/melody-analysis.mjs && node tests/owner-auth.mjs",
+    "typecheck": "tsc --noEmit --incremental false",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },

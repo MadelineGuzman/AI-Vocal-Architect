@@ -1,0 +1,2 @@
+# Preserve the recovered standalone prototype byte-for-byte across checkouts.
+archive/legacy-prototype/index.html -text -whitespace

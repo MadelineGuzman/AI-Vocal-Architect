@@ -1,0 +1,1650 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VocalChain AI</title>
+  <style>
+    :root {
+      --bg-0: #04050d;
+      --bg-1: #090b18;
+      --bg-2: #10142b;
+      --panel: rgba(13, 18, 39, 0.68);
+      --line: rgba(150, 165, 255, 0.16);
+      --text: #eef3ff;
+      --muted: #98a7da;
+      --cyan: #5ad8ff;
+      --blue: #6c7cff;
+      --violet: #8f62ff;
+      --pink: #e35dff;
+      --teal: #66f0d1;
+      --shadow-lg: 0 32px 80px rgba(0, 0, 0, 0.55);
+      --shadow-md: 0 18px 50px rgba(0, 0, 0, 0.35);
+      --glow: 0 0 25px rgba(90, 216, 255, 0.12), 0 0 60px rgba(143, 98, 255, 0.08);
+      --radius-xl: 30px;
+      --radius-lg: 22px;
+      --radius-md: 18px;
+      --ease: cubic-bezier(.22, .84, .24, 1);
+      --font: "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      font-family: var(--font);
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 18%, rgba(90, 216, 255, 0.12), transparent 18%),
+        radial-gradient(circle at 82% 15%, rgba(227, 93, 255, 0.12), transparent 20%),
+        radial-gradient(circle at 50% 100%, rgba(108, 124, 255, 0.18), transparent 28%),
+        linear-gradient(145deg, var(--bg-0) 0%, var(--bg-1) 40%, #080a13 100%);
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      border-radius: 999px;
+      filter: blur(90px);
+      pointer-events: none;
+      opacity: 0.48;
+      z-index: 0;
+      animation: drift 16s ease-in-out infinite;
+    }
+
+    body::before {
+      width: 340px;
+      height: 340px;
+      top: -40px;
+      left: -90px;
+      background: rgba(90, 216, 255, 0.16);
+    }
+
+    body::after {
+      width: 420px;
+      height: 420px;
+      right: -120px;
+      bottom: -120px;
+      background: rgba(143, 98, 255, 0.18);
+      animation-direction: reverse;
+    }
+
+    @keyframes drift {
+      0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+      50% { transform: translate3d(16px, -18px, 0) scale(1.06); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.56; }
+    }
+
+    @keyframes spinSlow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes reveal {
+      from { opacity: 0; transform: translateY(24px) scale(0.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .noise {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.08;
+      background-image:
+        linear-gradient(transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%),
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 4px);
+      mix-blend-mode: soft-light;
+    }
+
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 32px 20px 56px;
+    }
+
+    .app {
+      width: min(1180px, 100%);
+      display: grid;
+      grid-template-columns: 1fr 1.08fr;
+      gap: 26px;
+      align-items: start;
+    }
+
+    .panel {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)), var(--panel);
+      box-shadow: var(--shadow-lg), var(--glow);
+      backdrop-filter: blur(24px) saturate(130%);
+      -webkit-backdrop-filter: blur(24px) saturate(130%);
+    }
+
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at top left, rgba(90, 216, 255, 0.14), transparent 24%),
+        radial-gradient(circle at bottom right, rgba(227, 93, 255, 0.12), transparent 24%);
+      pointer-events: none;
+    }
+
+    .controls,
+    .results {
+      padding: 30px;
+    }
+
+    .controls {
+      position: sticky;
+      top: 24px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      color: var(--cyan);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 30px;
+      height: 1px;
+      background: linear-gradient(90deg, var(--cyan), transparent);
+      box-shadow: 0 0 12px rgba(90, 216, 255, 0.45);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.4rem, 4.3vw, 4.6rem);
+      line-height: 0.94;
+      letter-spacing: -0.05em;
+      font-weight: 850;
+    }
+
+    .brand {
+      background: linear-gradient(105deg, #ffffff 0%, #aff0ff 28%, #8d8eff 58%, #eea2ff 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 24px rgba(90, 216, 255, 0.14);
+    }
+
+    .subtitle {
+      margin: 16px 0 28px;
+      color: var(--muted);
+      line-height: 1.8;
+      max-width: 56ch;
+      font-size: 0.99rem;
+    }
+
+    .hero-meter {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding: 14px 16px;
+      background: rgba(8, 12, 28, 0.62);
+      border: 1px solid rgba(136, 150, 255, 0.14);
+      border-radius: 18px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .hero-meter-label {
+      font-size: 0.85rem;
+      color: #dce6ff;
+      white-space: nowrap;
+    }
+
+    .hero-meter-bars {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(18, 1fr);
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .hero-meter-bars span {
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(90,216,255,0.2), rgba(143,98,255,0.14));
+      transition: transform 280ms var(--ease), opacity 280ms var(--ease), background 280ms var(--ease), box-shadow 280ms var(--ease);
+    }
+
+    .hero-meter-bars span.active {
+      background: linear-gradient(90deg, var(--cyan), var(--blue), var(--pink));
+      box-shadow: 0 0 10px rgba(90, 216, 255, 0.32), 0 0 16px rgba(143, 98, 255, 0.2);
+      transform: scaleY(1.35);
+    }
+
+    .form-grid { display: grid; gap: 18px; }
+    .field { display: grid; gap: 10px; }
+    .field-row { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    label { font-size: 0.95rem; font-weight: 700; color: #ecf2ff; }
+    .field-hint { color: var(--muted); font-size: 0.83rem; }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .preset-btn {
+      padding: 12px 14px;
+      border: 1px solid rgba(141, 164, 255, 0.18);
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(90,216,255,0.14), rgba(143,98,255,0.18));
+      color: #eef4ff;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 10px 24px rgba(0, 0, 0, 0.18);
+      transition: transform 180ms var(--ease), box-shadow 180ms var(--ease), border-color 180ms var(--ease), background 180ms var(--ease);
+    }
+
+    .preset-btn:hover {
+      transform: translateY(-1px) scale(1.02);
+      border-color: rgba(141, 164, 255, 0.32);
+      box-shadow: 0 0 18px rgba(90, 216, 255, 0.16), 0 0 24px rgba(143, 98, 255, 0.1), 0 14px 28px rgba(0, 0, 0, 0.22);
+      background: linear-gradient(135deg, rgba(90,216,255,0.2), rgba(143,98,255,0.24));
+    }
+
+    .preset-btn:active {
+      transform: scale(0.99);
+    }
+
+    .input-shell {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      background: linear-gradient(135deg, rgba(90,216,255,0.08), rgba(143,98,255,0.08));
+      padding: 2px;
+      width: 100%;
+      transition: transform 260ms var(--ease), box-shadow 260ms var(--ease);
+    }
+
+    .input-shell:focus-within {
+      transform: translateY(-1px);
+      box-shadow: 0 0 0 4px rgba(90, 216, 255, 0.08), 0 0 26px rgba(90, 216, 255, 0.12);
+    }
+
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 14px 16px;
+      font-size: 16px;
+      box-sizing: border-box;
+      border: none;
+      border-radius: 17px;
+       background: linear-gradient(135deg, #1e293b, #334155);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+/* dropdown options */
+select option {
+  background-color: #1e293b;
+  color: white;
+}
+
+    input[type="text"]::placeholder { color: #6f7fb7; }
+
+    .select-wrap { position: relative; }
+
+    .select-wrap::after {
+      content: "▾";
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #b8c6ff;
+      pointer-events: none;
+      font-size: 0.92rem;
+    }
+
+    .slider-wrap,
+    .toggle,
+    .mini-dashboard {
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(15, 20, 44, 0.9), rgba(8, 12, 27, 0.82));
+      border: 1px solid rgba(141, 164, 255, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), var(--shadow-md);
+    }
+
+    .slider-wrap { padding: 15px 16px 16px; }
+
+    .slider-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .slider-value {
+      min-width: 58px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(90,216,255,0.18), rgba(143,98,255,0.22));
+      border: 1px solid rgba(141, 164, 255, 0.2);
+      box-shadow: 0 0 16px rgba(143, 98, 255, 0.1);
+      text-align: center;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(90,216,255,0.42), rgba(108,124,255,0.7), rgba(227,93,255,0.82));
+    }
+
+    input[type="range"]::-moz-range-track {
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(90,216,255,0.42), rgba(108,124,255,0.7), rgba(227,93,255,0.82));
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      margin-top: -7px;
+      border: 2px solid rgba(255,255,255,0.92);
+      background: radial-gradient(circle at 35% 30%, #ffffff, #b3c4ff 38%, #7be3ff 58%, #986dff 100%);
+      box-shadow: 0 0 18px rgba(90, 216, 255, 0.45), 0 0 26px rgba(143, 98, 255, 0.28);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.92);
+      background: radial-gradient(circle at 35% 30%, #ffffff, #b3c4ff 38%, #7be3ff 58%, #986dff 100%);
+      box-shadow: 0 0 18px rgba(90, 216, 255, 0.45), 0 0 26px rgba(143, 98, 255, 0.28);
+    }
+
+    .mini-dashboard {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .mini-cell {
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(150, 165, 255, 0.09);
+    }
+
+    .mini-cell-label {
+      font-size: 0.74rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      margin-bottom: 6px;
+    }
+
+    .mini-cell-value {
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: #f5f8ff;
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px;
+    }
+
+    .toggle-text { display: grid; gap: 4px; }
+    .toggle-text span:first-child { font-weight: 700; }
+
+    .switch {
+      position: relative;
+      width: 64px;
+      height: 36px;
+      flex-shrink: 0;
+    }
+
+    .switch input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      z-index: 2;
+    }
+
+    .slider-ui {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: rgba(45, 53, 89, 0.92);
+      border: 1px solid rgba(141, 164, 255, 0.18);
+      transition: all 240ms var(--ease);
+      box-shadow: inset 0 0 12px rgba(0,0,0,0.35);
+    }
+
+    .slider-ui::after {
+      content: "";
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ffffff, #bcc8ff);
+      transition: transform 240ms var(--ease), box-shadow 240ms var(--ease);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    }
+
+    .switch input:checked + .slider-ui {
+      background: linear-gradient(135deg, rgba(90,216,255,0.45), rgba(143,98,255,0.8));
+      box-shadow: 0 0 18px rgba(90, 216, 255, 0.18), 0 0 26px rgba(143, 98, 255, 0.12);
+    }
+
+    .switch input:checked + .slider-ui::after {
+      transform: translateX(28px);
+      box-shadow: 0 0 18px rgba(255,255,255,0.35), 0 0 20px rgba(90, 216, 255, 0.26);
+    }
+
+    .generate-btn {
+      position: relative;
+      width: 100%;
+      padding: 17px 18px;
+      border: none;
+      border-radius: 20px;
+      color: white;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      background: linear-gradient(125deg, #10c7ff 0%, #6676ff 46%, #cc63ff 100%);
+      box-shadow: 0 20px 40px rgba(68, 72, 255, 0.28), 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.22);
+      overflow: hidden;
+      transition: transform 220ms var(--ease), box-shadow 220ms var(--ease), filter 220ms var(--ease);
+      isolation: isolate;
+    }
+
+    .generate-btn::before,
+    .generate-btn::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      transition: transform 500ms var(--ease), opacity 500ms var(--ease);
+    }
+
+    .generate-btn::before {
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
+      transform: translateX(-130%);
+    }
+
+    .generate-btn::after {
+      background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.24), transparent 55%);
+      opacity: 0;
+      transform: scale(0.72);
+    }
+
+    .generate-btn:hover {
+      transform: translateY(-2px) scale(1.01);
+      filter: saturate(1.06);
+      box-shadow: 0 24px 50px rgba(68, 72, 255, 0.34), 0 0 22px rgba(90, 216, 255, 0.22), 0 0 34px rgba(227, 93, 255, 0.18);
+    }
+
+    .generate-btn:hover::before { transform: translateX(130%); }
+    .generate-btn:hover::after { opacity: 1; transform: scale(1); }
+    .generate-btn:active { transform: translateY(0) scale(0.995); }
+
+    .pulse-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 10px;
+      border-radius: 50%;
+      background: var(--teal);
+      box-shadow: 0 0 16px rgba(102, 240, 209, 0.68);
+      animation: pulse 1.9s ease-in-out infinite;
+      vertical-align: middle;
+    }
+
+    .results {
+      min-height: 700px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .results-title {
+      font-size: 1.18rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .results-subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 4px;
+    }
+
+    .badge {
+      padding: 8px 13px;
+      border-radius: 999px;
+      background: rgba(8, 12, 27, 0.8);
+      border: 1px solid rgba(141, 164, 255, 0.18);
+      color: #dbe4ff;
+      font-size: 0.82rem;
+    }
+
+    .display-well {
+      position: relative;
+      flex: 1;
+      padding: 18px;
+      border-radius: 26px;
+      background: linear-gradient(180deg, rgba(10, 14, 31, 0.94), rgba(7, 10, 23, 0.96));
+      border: 1px solid rgba(141, 164, 255, 0.12);
+      overflow: hidden;
+    }
+
+    .display-well::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top, rgba(90,216,255,0.08), transparent 32%), radial-gradient(circle at bottom right, rgba(227,93,255,0.08), transparent 28%);
+      pointer-events: none;
+    }
+
+    .empty-state {
+      height: 100%;
+      border-radius: 22px;
+      border: 1px dashed rgba(141, 164, 255, 0.16);
+      background: linear-gradient(180deg, rgba(11, 16, 34, 0.58), rgba(7, 10, 23, 0.24)), radial-gradient(circle at top, rgba(90,216,255,0.08), transparent 38%);
+      display: grid;
+      place-items: center;
+      padding: 44px 28px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .orb-wrap {
+      position: relative;
+      width: 110px;
+      height: 110px;
+      margin: 0 auto 18px;
+      display: grid;
+      place-items: center;
+    }
+
+    .orb-ring,
+    .orb-core {
+      position: absolute;
+      border-radius: 50%;
+    }
+
+    .orb-ring {
+      inset: 0;
+      border: 1px solid rgba(141, 164, 255, 0.16);
+      box-shadow: 0 0 24px rgba(90, 216, 255, 0.08);
+      animation: spinSlow 12s linear infinite;
+    }
+
+    .orb-ring::before,
+    .orb-ring::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      inset: 10px;
+      border-top: 1px solid rgba(90,216,255,0.38);
+      border-right: 1px solid transparent;
+      border-bottom: 1px solid transparent;
+      border-left: 1px solid rgba(227,93,255,0.2);
+      animation: spinSlow 8s linear infinite reverse;
+    }
+
+    .orb-core {
+      width: 54px;
+      height: 54px;
+      background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.98), rgba(120,225,255,0.58) 34%, rgba(143,98,255,0.38) 64%, transparent 80%);
+      box-shadow: 0 0 26px rgba(90, 216, 255, 0.24), 0 0 42px rgba(143, 98, 255, 0.16);
+      animation: pulse 2.8s ease-in-out infinite;
+    }
+
+    .result-content {
+      display: none;
+      opacity: 0;
+      transform: translateY(24px) scale(0.985);
+      transform-origin: top center;
+    }
+
+    .result-content.show {
+      display: block;
+      animation: reveal 620ms var(--ease) forwards;
+    }
+
+    .vibe-box {
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      gap: 10px;
+      padding: 22px;
+      border-radius: 24px;
+      background: linear-gradient(135deg, rgba(90,216,255,0.12), rgba(143,98,255,0.16), rgba(227,93,255,0.08)), rgba(10, 16, 35, 0.9);
+      border: 1px solid rgba(141, 164, 255, 0.18);
+    }
+
+    .vibe-box::after {
+      content: "";
+      position: absolute;
+      inset: auto -20% -55% auto;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(90,216,255,0.12), transparent 70%);
+      filter: blur(18px);
+    }
+
+    .vibe-label {
+      font-size: 0.78rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #9ae7ff;
+    }
+
+    .vibe-text {
+      font-size: 1.03rem;
+      line-height: 1.76;
+      color: #f6f9ff;
+    }
+
+    .mini-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 2px;
+    }
+
+    .mini-pill {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(8, 12, 29, 0.78);
+      border: 1px solid rgba(141, 164, 255, 0.14);
+      color: #c8d6ff;
+      font-size: 0.83rem;
+    }
+
+    .chain-grid {
+      display: grid;
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 24px;
+      padding: 20px;
+      background: linear-gradient(180deg, rgba(16, 22, 47, 0.96), rgba(8, 12, 27, 0.96));
+      border: 1px solid rgba(141, 164, 255, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), var(--shadow-md);
+      transition: transform 260ms var(--ease), border-color 260ms var(--ease), box-shadow 260ms var(--ease);
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: linear-gradient(180deg, var(--cyan), var(--blue), var(--pink));
+      box-shadow: 0 0 18px rgba(90, 216, 255, 0.28);
+    }
+
+    .card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(255,255,255,0.05), transparent 38%);
+      opacity: 0;
+      transition: opacity 260ms var(--ease);
+      pointer-events: none;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(141, 164, 255, 0.22);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 24px 40px rgba(0, 0, 0, 0.28), 0 0 24px rgba(90, 216, 255, 0.06);
+    }
+
+    .card:hover::after { opacity: 1; }
+
+    .card h3 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+      letter-spacing: 0.01em;
+    }
+
+    .plugin-name {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 9px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+      color: #f7f9ff;
+      background: linear-gradient(120deg, rgba(90,216,255,0.16), rgba(143,98,255,0.18));
+      border: 1px solid rgba(141, 164, 255, 0.2);
+    }
+
+    .plugin-name::before {
+      content: "Plugin";
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #b7dcff;
+    }
+
+    .settings {
+      display: grid;
+      gap: 9px;
+      margin-top: 6px;
+    }
+
+    .setting-line {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: #e8eeff;
+    }
+
+    .setting-line strong {
+      min-width: 106px;
+      color: #98e5ff;
+      font-weight: 700;
+    }
+
+    .learn {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(141, 164, 255, 0.1);
+      color: #bdc8eb;
+      font-size: 0.9rem;
+      line-height: 1.65;
+    }
+
+    .footer-note {
+      color: #7d8abe;
+      font-size: 0.82rem;
+      text-align: right;
+    }
+
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; }
+      .controls { position: static; }
+      .results { min-height: unset; }
+    }
+
+    @media (max-width: 620px) {
+      .controls,
+      .results { padding: 22px; }
+
+      .results-header,
+      .field-row,
+      .toggle {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .mini-dashboard { grid-template-columns: 1fr; }
+      .preset-grid { grid-template-columns: 1fr; }
+      .setting-line { flex-direction: column; gap: 2px; }
+      .setting-line strong { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+
+  <main class="app-shell">
+    <section class="app">
+      <div class="panel controls">
+        <div class="eyebrow">AI Vocal Architect</div>
+        <h1><span class="brand">VocalChain AI</span></h1>
+        <p class="subtitle">Generate polished vocal chains with the feel of a premium production suite. Shape the style, choose your DAW, and dial intensity for a faster creative starting point.</p>
+
+        <div class="hero-meter" aria-hidden="true">
+          <div class="hero-meter-label">Signal Energy</div>
+          <div class="hero-meter-bars" id="heroMeter"></div>
+        </div>
+
+        <div class="form-grid">
+          <div class="field">
+            <div class="field-row">
+              <label>Style Presets</label>
+              <span class="field-hint">Quick starting points</span>
+            </div>
+            <div class="preset-grid" id="presetGrid">
+              <button class="preset-btn" type="button" onclick="applyPreset('clean vocal, smooth, controlled dynamics', 4)">Clean &amp; Natural</button>
+              <button class="preset-btn" type="button" onclick="applyPreset('aggressive rap, punchy, upfront', 8)">Aggressive Rap</button>
+              <button class="preset-btn" type="button" onclick="applyPreset('chopped and screwed, slow, pitch shifted', 6)">Chopped &amp; Screwed</button>
+              <button class="preset-btn" type="button" onclick="applyPreset('melodic rap with autotune, modern, atmospheric', 7)">Autotune Vibe</button>
+              <button class="preset-btn" type="button" onclick="applyPreset('smooth R&amp;B vocal, warm, controlled dynamics, soft compression, airy highs', 5)">Smooth R&amp;B</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-row">
+              <label for="styleInput">Vocal Style</label>
+              <span class="field-hint">Describe the character or genre</span>
+            </div>
+            <div class="input-shell">
+              <input id="styleInput" type="text" placeholder="Describe your vocal style..." value="aggressive rap" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-row">
+              <label for="dawSelect">DAW</label>
+              <span class="field-hint">Uses native plugins where possible</span>
+            </div>
+            <div class="input-shell select-wrap">
+              <select id="dawSelect">
+                <option>FL Studio</option>
+                <option>Logic Pro</option>
+                <option>Pro Tools</option>
+                <option>Ableton</option>
+                <option>Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="intensityRange">Intensity</label>
+            <div class="slider-wrap">
+              <div class="slider-top">
+                <span class="field-hint">Higher values push compression, boosts, and FX harder</span>
+                <span class="slider-value" id="intensityValue">6 / 10</span>
+              </div>
+              <input id="intensityRange" type="range" min="1" max="10" value="6" />
+            </div>
+          </div>
+
+          <div class="mini-dashboard">
+            <div class="mini-cell">
+              <div class="mini-cell-label">Processing</div>
+              <div class="mini-cell-value" id="miniProcessing">Assertive</div>
+            </div>
+            <div class="mini-cell">
+              <div class="mini-cell-label">Space</div>
+              <div class="mini-cell-value" id="miniSpace">Focused</div>
+            </div>
+            <div class="mini-cell">
+              <div class="mini-cell-label">Tone</div>
+              <div class="mini-cell-value" id="miniTone">Forward</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="toggle">
+              <div class="toggle-text">
+                <span>Learn Mode (Why this works)</span>
+                <span class="field-hint">Adds quick engineering notes under each section</span>
+              </div>
+              <label class="switch" aria-label="Learn Mode Toggle">
+                <input id="learnToggle" type="checkbox" />
+                <span class="slider-ui"></span>
+              </label>
+            </div>
+          </div>
+
+          <button class="generate-btn" id="generateBtn" type="button"><span class="pulse-dot"></span>Generate Mix Chain</button>
+        </div>
+      </div>
+
+      <div class="panel results">
+        <div class="results-header">
+          <div>
+            <div class="results-title">Generated Chain</div>
+            <div class="results-subtitle">Premium adaptive signal path</div>
+          </div>
+          <div class="badge" id="resultsBadge">Waiting for style input</div>
+        </div>
+
+        <div class="display-well">
+          <div class="empty-state" id="emptyState">
+            <div>
+              <div class="orb-wrap">
+                <div class="orb-ring"></div>
+                <div class="orb-core"></div>
+              </div>
+              <h2 style="margin:0 0 10px; font-size:1.2rem;">Shape the vocal atmosphere</h2>
+              <p style="margin:0; max-width:42ch; line-height:1.75;">Build a tailored vocal chain with cinematic motion, DAW-aware plugins, and processing that scales with performance intensity.</p>
+            </div>
+          </div>
+
+          <div class="result-content" id="resultContent">
+            <div class="vibe-box">
+              <div class="vibe-label">Vibe Description</div>
+              <div class="vibe-text" id="vibeText"></div>
+              <div class="mini-meta">
+                <div class="mini-pill" id="metaStyle"></div>
+                <div class="mini-pill" id="metaDaw"></div>
+                <div class="mini-pill" id="metaIntensity"></div>
+              </div>
+            </div>
+
+            <div class="chain-grid">
+              <div class="card">
+                <h3>EQ Section</h3>
+                <div class="plugin-name" id="eqPlugin"></div>
+                <div class="settings" id="eqSettings"></div>
+                <div class="learn" id="eqLearn" hidden></div>
+              </div>
+
+              <div class="card">
+                <h3>Compression Section</h3>
+                <div class="plugin-name" id="compPlugin"></div>
+                <div class="settings" id="compSettings"></div>
+                <div class="learn" id="compLearn" hidden></div>
+              </div>
+
+              <div class="card">
+                <h3>FX Section</h3>
+                <div class="plugin-name" id="fxPlugin"></div>
+                <div class="settings" id="fxSettings"></div>
+                <div class="learn" id="fxLearn" hidden></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer-note">Craft the first draft fast, then refine by ear like a real session.</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const styleInput = document.getElementById("styleInput");
+    const dawSelect = document.getElementById("dawSelect");
+    const intensityRange = document.getElementById("intensityRange");
+    const intensityControl = document.getElementById("intensity") || intensityRange;
+    const intensityValue = document.getElementById("intensityValue");
+    const learnToggle = document.getElementById("learnToggle");
+    const generateBtn = document.getElementById("generateBtn");
+    const presetGrid = document.getElementById("presetGrid");
+    const heroMeter = document.getElementById("heroMeter");
+    const emptyState = document.getElementById("emptyState");
+    const resultContent = document.getElementById("resultContent");
+    const resultsBadge = document.getElementById("resultsBadge");
+    const vibeText = document.getElementById("vibeText");
+    const metaStyle = document.getElementById("metaStyle");
+    const metaDaw = document.getElementById("metaDaw");
+    const metaIntensity = document.getElementById("metaIntensity");
+    const eqPlugin = document.getElementById("eqPlugin");
+    const eqSettings = document.getElementById("eqSettings");
+    const eqLearn = document.getElementById("eqLearn");
+    const compPlugin = document.getElementById("compPlugin");
+    const compSettings = document.getElementById("compSettings");
+    const compLearn = document.getElementById("compLearn");
+    const fxPlugin = document.getElementById("fxPlugin");
+    const fxSettings = document.getElementById("fxSettings");
+    const fxLearn = document.getElementById("fxLearn");
+    const miniProcessing = document.getElementById("miniProcessing");
+    const miniSpace = document.getElementById("miniSpace");
+    const miniTone = document.getElementById("miniTone");
+
+const vocalPresets = {
+  cleanNatural: {
+    label: "Clean & Natural",
+    text: "clean vocal, smooth, controlled dynamics",
+    recommendedIntensity: 4,
+    keywords: ["clean", "natural", "smooth", "controlled"],
+    vibe: "Clean, balanced, natural vocals with light control, subtle polish, and minimal ambience.",
+    eqBase: {
+      hpf: 80,
+      slope: "18 dB/oct",
+      moves: [
+        { label: "Low-Mid Cleanup", freq: 250, gain: -1.5, q: 1.1, type: "bell" },
+        { label: "Presence", freq: 3800, gain: 1.8, q: 0.9, type: "bell" },
+        { label: "Air", freq: 10000, gain: 1.5, q: 0.7, type: "shelf" }
+      ],
+      deEss: { freq: 6800, amount: 2.2 }
+    },
+    compBase: {
+      ratio: 2,
+      attack: 20,
+      release: 110,
+      gainReduction: 2.5,
+      threshold: -16
+    },
+    fxBase: {
+      reverbType: "Very short plate",
+      reverbMix: 10,
+      reverbDecay: 1.0,
+      delayType: "Barely-there slap",
+      delayMix: 10,
+      delayTime: "1/16",
+      pitchShift: "None",
+      stereoWidth: "Narrow-natural",
+      retuneSpeed: null,
+      saturation: 2
+    }
+  },
+
+  aggressiveRap: {
+    label: "Aggressive Rap",
+    text: "aggressive rap, punchy, upfront",
+    recommendedIntensity: 8,
+    keywords: ["aggressive", "rap", "punchy", "upfront", "trap", "drill"],
+    vibe: "Forward, punchy, in-your-face vocals with firm dynamic control, bright edge, and tight FX.",
+    eqBase: {
+      hpf: 100,
+      slope: "24 dB/oct",
+      moves: [
+        { label: "Mud Cut", freq: 280, gain: -3.5, q: 1.2, type: "bell" },
+        { label: "Presence", freq: 4800, gain: 3.5, q: 0.9, type: "bell" },
+        { label: "Air", freq: 11000, gain: 2.0, q: 0.7, type: "shelf" }
+      ],
+      deEss: { freq: 7200, amount: 3.8 }
+    },
+    compBase: {
+      ratio: 5,
+      attack: 6,
+      release: 70,
+      gainReduction: 6.5,
+      threshold: -22
+    },
+    fxBase: {
+      reverbType: "Short plate",
+      reverbMix: 12,
+      reverbDecay: 1.1,
+      delayType: "Tight stereo slap",
+      delayMix: 13,
+      delayTime: "1/8",
+      pitchShift: "Optional subtle doubler",
+      stereoWidth: "Focused",
+      retuneSpeed: null,
+      saturation: 9
+    }
+  },
+
+  choppedScrewed: {
+    label: "Chopped & Screwed",
+    text: "chopped and screwed, slow, pitch shifted",
+    recommendedIntensity: 6,
+    keywords: ["chopped", "screwed", "slow", "pitch shifted", "slowed"],
+    vibe: "Dark, syrupy, pitch-shifted vocals with heavy space, slower feel, and thick low-mid energy.",
+    eqBase: {
+      hpf: 70,
+      slope: "12 dB/oct",
+      moves: [
+        { label: "Low-Mid Control", freq: 320, gain: -1.8, q: 1.0, type: "bell" },
+        { label: "Presence", freq: 3000, gain: 1.0, q: 1.0, type: "bell" },
+        { label: "Air", freq: 9000, gain: 1.0, q: 0.8, type: "shelf" }
+      ],
+      deEss: { freq: 6100, amount: 2.0 }
+    },
+    compBase: {
+      ratio: 3.5,
+      attack: 24,
+      release: 140,
+      gainReduction: 4,
+      threshold: -19
+    },
+    fxBase: {
+      reverbType: "Dark hall",
+      reverbMix: 24,
+      reverbDecay: 2.8,
+      delayType: "Heavy filtered echo",
+      delayMix: 24,
+      delayTime: "1/2",
+      pitchShift: "-4 semitones blend",
+      stereoWidth: "Wide",
+      retuneSpeed: null,
+      saturation: 6
+    }
+  },
+
+  autotuneVibe: {
+    label: "Autotune Vibe",
+    text: "melodic rap with autotune, modern, atmospheric",
+    recommendedIntensity: 7,
+    keywords: ["autotune", "melodic", "atmospheric", "modern", "tuned"],
+    vibe: "Modern melodic vocals with fast pitch correction, bright top-end, width, and atmospheric delay.",
+    eqBase: {
+      hpf: 85,
+      slope: "18 dB/oct",
+      moves: [
+        { label: "Low-Mid Cleanup", freq: 300, gain: -2.2, q: 1.1, type: "bell" },
+        { label: "Presence", freq: 5000, gain: 2.8, q: 0.9, type: "bell" },
+        { label: "Air", freq: 12000, gain: 3.2, q: 0.7, type: "shelf" }
+      ],
+      deEss: { freq: 7600, amount: 3.0 }
+    },
+    compBase: {
+      ratio: 4,
+      attack: 12,
+      release: 85,
+      gainReduction: 5,
+      threshold: -20
+    },
+    fxBase: {
+      reverbType: "Bright plate",
+      reverbMix: 18,
+      reverbDecay: 1.7,
+      delayType: "Stereo ping-pong delay",
+      delayMix: 20,
+      delayTime: "1/8 dotted",
+      pitchShift: "AutoTune / tuned lead",
+      stereoWidth: "Wide stereo spread",
+      retuneSpeed: 8,
+      saturation: 5
+    }
+  },
+
+  smoothRnB: {
+    label: "Smooth R&B",
+    text: "smooth R&B vocal, warm, controlled dynamics, soft compression, airy highs",
+    recommendedIntensity: 5,
+    keywords: ["r&b", "smooth", "warm", "airy", "silky"],
+    vibe: "Warm, polished, intimate vocals with lush ambience, soft control, and glossy air.",
+    eqBase: {
+      hpf: 70,
+      slope: "18 dB/oct",
+      moves: [
+        { label: "Warmth", freq: 280, gain: 1.4, q: 0.9, type: "bell" },
+        { label: "Presence", freq: 4000, gain: 1.8, q: 0.9, type: "bell" },
+        { label: "Air", freq: 11000, gain: 3.2, q: 0.7, type: "shelf" }
+      ],
+      deEss: { freq: 6900, amount: 2.6 }
+    },
+    compBase: {
+      ratio: 3.5,
+      attack: 20,
+      release: 105,
+      gainReduction: 4,
+      threshold: -18
+    },
+    fxBase: {
+      reverbType: "Lush plate / hall",
+      reverbMix: 22,
+      reverbDecay: 2.1,
+      delayType: "Stereo 1/4 dotted delay",
+      delayMix: 18,
+      delayTime: "1/4 dotted",
+      pitchShift: "Optional subtle doubler",
+      stereoWidth: "Wide but smooth",
+      retuneSpeed: null,
+      saturation: 4
+    }
+  }
+};
+
+let activePresetKey = null;
+
+const presetTextMap = Object.fromEntries(
+  Object.entries(vocalPresets).map(([key, preset]) => [preset.text, key])
+);
+
+function clonePresetProfile(preset) {
+  return JSON.parse(JSON.stringify(preset));
+}
+
+function applyPreset(text, intensity) {
+  const styleField = document.getElementById("styleInput");
+  const slider = document.getElementById("intensity") || intensityControl;
+  activePresetKey = presetTextMap[text] || null;
+
+  if (styleField) {
+    styleField.value = text;
+    styleField.dispatchEvent(new Event("input", { bubbles: true }));
+    styleField.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  if (slider && typeof intensity !== "undefined") {
+    slider.value = intensity;
+  }
+
+  if (typeof updateIntensityLabel === "function") updateIntensityLabel();
+  if (typeof updateEnergyMeter === "function") updateEnergyMeter();
+  else if (typeof updateHeroMeter === "function") updateHeroMeter();
+}
+
+window.applyPreset = applyPreset;
+
+styleInput.addEventListener("input", () => {
+  if (presetTextMap[styleInput.value] !== activePresetKey) {
+    activePresetKey = null;
+  }
+});
+
+function buildCustomProfile(styleText) {
+  const lower = styleText.toLowerCase();
+  const base = clonePresetProfile(vocalPresets.cleanNatural);
+
+  if (lower.includes("rap") || lower.includes("aggressive")) return clonePresetProfile(vocalPresets.aggressiveRap);
+  if (lower.includes("screwed") || lower.includes("chopped") || lower.includes("slow")) return clonePresetProfile(vocalPresets.choppedScrewed);
+  if (lower.includes("autotune") || lower.includes("melodic") || lower.includes("tuned")) return clonePresetProfile(vocalPresets.autotuneVibe);
+  if (lower.includes("r&b") || lower.includes("smooth") || lower.includes("warm")) return clonePresetProfile(vocalPresets.smoothRnB);
+
+  base.label = "Custom Vocal";
+  base.vibe = "Balanced, modern vocal shaping with clean control, readable presence, and adaptable ambience.";
+  return base;
+}
+
+function getProfile(styleText) {
+  if (activePresetKey && vocalPresets[activePresetKey]) {
+    return clonePresetProfile(vocalPresets[activePresetKey]);
+  }
+
+  const lower = styleText.toLowerCase();
+  const matched = Object.values(vocalPresets).find(preset =>
+    preset.keywords.some(keyword => lower.includes(keyword))
+  );
+
+  return matched ? clonePresetProfile(matched) : buildCustomProfile(styleText);
+}
+
+function interpolateIntensity(intensity, low, mid, high) {
+  if (intensity <= 5) {
+    const t = (intensity - 1) / 4;
+    return low + (mid - low) * t;
+  }
+  const t = (intensity - 5) / 5;
+  return mid + (high - mid) * t;
+}
+
+function scaleProfile(profile, intensity) {
+  const eqMultiplier = intensity / 5;
+  const wetMix = interpolateIntensity(intensity, 10, 20, 35);
+  const ratio = clamp(profile.compBase.ratio * (0.8 + intensity / 10), 2, 8);
+  const gainReduction = clamp(profile.compBase.gainReduction * (intensity / 5), 2, 10);
+  const attack = clamp(profile.compBase.attack - interpolateIntensity(intensity, 0, 2, 6), 2, 35);
+  const release = Math.round(clamp(profile.compBase.release - interpolateIntensity(intensity, 0, 8, 20), 45, 180));
+
+  return {
+    label: profile.label,
+    vibe: profile.vibe,
+    eq: {
+      hpf: Math.round(profile.eqBase.hpf + interpolateIntensity(intensity, 0, 5, 15)),
+      slope: profile.eqBase.slope,
+      moves: profile.eqBase.moves.map(move => ({
+        ...move,
+        scaledGain: move.gain * eqMultiplier
+      })),
+      deEss: {
+        freq: profile.eqBase.deEss.freq,
+        amount: profile.eqBase.deEss.amount * Math.max(0.85, intensity / 6)
+      }
+    },
+    comp: {
+      ratio,
+      threshold: profile.compBase.threshold - interpolateIntensity(intensity, 0, 3, 8),
+      attack,
+      release,
+      gainReduction,
+      makeup: interpolateIntensity(intensity, 1, 2.5, 4.5)
+    },
+    fx: {
+      reverbType: profile.fxBase.reverbType,
+      reverbMix: clamp((profile.fxBase.reverbMix * 0.45) + wetMix * 0.55, 10, 35),
+      reverbDecay: profile.fxBase.reverbDecay + interpolateIntensity(intensity, 0, 0.3, 1.0),
+      delayType: profile.fxBase.delayType,
+      delayMix: clamp((profile.fxBase.delayMix * 0.5) + (wetMix * 0.5), 10, 35),
+      delayTime: profile.fxBase.delayTime,
+      pitchShift: profile.fxBase.pitchShift,
+      stereoWidth: profile.fxBase.stereoWidth,
+      retuneSpeed: profile.fxBase.retuneSpeed,
+      saturationAmount: clamp(profile.fxBase.saturation * (intensity / 5), 0, 18)
+    }
+  };
+}
+
+    const pluginMap = {
+      "FL Studio": { eq: "Fruity Parametric EQ 2", comp: "Fruity Limiter (COMP Mode)", fx: "Fruity Reeverb 2 + Fruity Delay 3 + Pitcher" },
+      "Logic Pro": { eq: "Channel EQ", comp: "Compressor", fx: "ChromaVerb + Stereo Delay + Vocal Transformer" },
+      "Pro Tools": { eq: "EQ III 7-Band", comp: "Dyn3 Compressor/Limiter", fx: "D-Verb + Mod Delay III + Pitch II" },
+      "Ableton": { eq: "EQ Eight", comp: "Compressor", fx: "Hybrid Reverb + Echo + Shifter" },
+      "Other": { eq: "FabFilter Pro-Q Style EQ", comp: "1176 / Digital Vocal Compressor", fx: "Plate Reverb + Stereo Delay + Pitch Shifter" }
+    };
+
+    const styleProfiles = [
+      {
+        keywords: ["aggressive", "rap", "drill", "trap", "hard"],
+        name: "Aggressive Rap",
+        vibe: "Forward, punchy, high-impact vocal tone with tight low-end cleanup, sharper presence, and decisive control so the lead cuts through heavy drums and 808s.",
+        eqBase: { hp: 90, lowCutSlope: "24 dB/oct", mudFreq: 280, mudCut: -3.5, presenceFreq: 4700, presenceBoost: 3.5, airFreq: 11000, airBoost: 2.5, deEssFreq: 7200, deEssAmt: 3.5 },
+        compBase: { ratio: 4, threshold: -18, attack: 10, release: 75, gainReduction: 4, makeup: 2.5 },
+        fxBase: { reverbMix: 9, reverbDecay: 1.1, delayMix: 11, delayTime: "1/8", pitch: "Off / subtle doubles only" },
+        learn: {
+          eq: "This removes rumble, trims boxiness, and pushes upper mids so the vocal stays dominant without clouding the beat.",
+          comp: "This controls fast peaks and keeps the take planted in front while preserving edge and attitude.",
+          fx: "Short ambience adds dimension while keeping the source tight and aggressive."
+        }
+      },
+      {
+        keywords: ["r&b", "clean", "smooth", "silky", "soul"],
+        name: "Clean R&B",
+        vibe: "Smooth, polished, intimate vocals with controlled warmth, glossy top-end, and gentle dynamics that feel premium without sounding brittle or overworked.",
+        eqBase: { hp: 75, lowCutSlope: "18 dB/oct", mudFreq: 250, mudCut: -2.5, presenceFreq: 3500, presenceBoost: 2.2, airFreq: 12500, airBoost: 4.2, deEssFreq: 6800, deEssAmt: 2.5 },
+        compBase: { ratio: 3, threshold: -21, attack: 24, release: 100, gainReduction: 3.5, makeup: 2 },
+        fxBase: { reverbMix: 17, reverbDecay: 1.9, delayMix: 13, delayTime: "1/4 dotted", pitch: "Light stereo doubler" },
+        learn: {
+          eq: "This keeps the vocal silky by reducing low-mid haze and adding a soft lift in the air band.",
+          comp: "A gentler compressor shape preserves nuance, breath, and emotional phrasing.",
+          fx: "Lush ambience and subtle width create the glossy intimacy common in polished R&B vocals."
+        }
+      },
+      {
+        keywords: ["chopped", "screwed", "slow", "slurred", "dark"],
+        name: "Chopped & Screwed",
+        vibe: "Heavy, syrupy, dark vocal character with a lower-energy front edge, thicker lower mids, softened transients, and wider space for a slowed, moody impression.",
+        eqBase: { hp: 65, lowCutSlope: "12 dB/oct", mudFreq: 320, mudCut: -1.8, presenceFreq: 2900, presenceBoost: 1.2, airFreq: 9000, airBoost: 1.1, deEssFreq: 6000, deEssAmt: 2 },
+        compBase: { ratio: 2.5, threshold: -22, attack: 28, release: 145, gainReduction: 3, makeup: 1.8 },
+        fxBase: { reverbMix: 22, reverbDecay: 2.8, delayMix: 20, delayTime: "1/2", pitch: "-3 to -5 semitones blend" },
+        learn: {
+          eq: "This leaves the vocal thick and moody while preventing the low mids from swallowing articulation.",
+          comp: "Softer compression holds the vocal together without making it feel too quick or modern.",
+          fx: "Longer, darker ambience and pitch movement support the slow, warped aesthetic."
+        }
+      },
+      {
+        keywords: ["pop", "bright", "radio", "commercial", "anthem"],
+        name: "Modern Pop",
+        vibe: "Bright, controlled, polished vocals with pop-forward clarity, tight dynamics, and wide but tidy effects that feel radio-ready and energetic.",
+        eqBase: { hp: 80, lowCutSlope: "18 dB/oct", mudFreq: 260, mudCut: -2.7, presenceFreq: 4300, presenceBoost: 2.8, airFreq: 13500, airBoost: 4.6, deEssFreq: 7600, deEssAmt: 3.2 },
+        compBase: { ratio: 3.5, threshold: -19, attack: 16, release: 82, gainReduction: 4.2, makeup: 2.4 },
+        fxBase: { reverbMix: 15, reverbDecay: 1.6, delayMix: 14, delayTime: "1/8 dotted", pitch: "Subtle micro-shift widen" },
+        learn: {
+          eq: "This creates intelligibility and sheen while cleaning the low-mid area that can make pop vocals sound crowded.",
+          comp: "Balanced compression locks the vocal in place and helps every phrase read consistently.",
+          fx: "Tempo-aware delays and controlled width deliver dimension without losing the center vocal."
+        }
+      },
+      {
+        keywords: ["lofi", "indie", "vintage", "dusty", "soft"],
+        name: "Lo-Fi Indie",
+        vibe: "Soft-edged, character-forward vocals with restrained brightness, gentle control, and atmospheric effects that feel intimate, worn-in, and emotionally close.",
+        eqBase: { hp: 70, lowCutSlope: "12 dB/oct", mudFreq: 300, mudCut: -1.6, presenceFreq: 3100, presenceBoost: 1.5, airFreq: 10000, airBoost: 1.3, deEssFreq: 6500, deEssAmt: 2 },
+        compBase: { ratio: 2.8, threshold: -23, attack: 30, release: 120, gainReduction: 2.8, makeup: 1.6 },
+        fxBase: { reverbMix: 19, reverbDecay: 2.2, delayMix: 12, delayTime: "1/4", pitch: "Optional light detune" },
+        learn: {
+          eq: "This keeps the tone mellow and textured instead of overly polished or clinical.",
+          comp: "Lighter control protects the human movement that helps lo-fi vocals feel alive.",
+          fx: "Soft ambience supports mood and depth without turning the vocal glossy."
+        }
+      }
+    ];
+
+    const clamp = (num, min, max) => Math.min(Math.max(num, min), max);
+    const formatDb = value => `${value > 0 ? "+" : ""}${value.toFixed(1)} dB`;
+
+    function buildHeroMeter() {
+      heroMeter.innerHTML = "";
+      for (let i = 0; i < 18; i++) heroMeter.appendChild(document.createElement("span"));
+      updateHeroMeter();
+    }
+
+    function updateHeroMeter() {
+      const intensity = Number(intensityRange.value);
+      const activeCount = Math.round((intensity / 10) * 18);
+      [...heroMeter.children].forEach((bar, index) => {
+        bar.classList.toggle("active", index < activeCount);
+        bar.style.opacity = index < activeCount ? "1" : "0.45";
+      });
+    }
+
+    function updateMiniDashboard() {
+      const intensity = Number(intensityRange.value);
+      miniProcessing.textContent = intensity <= 3 ? "Gentle" : intensity <= 7 ? "Assertive" : "Maxed";
+      miniSpace.textContent = intensity <= 3 ? "Tight" : intensity <= 7 ? "Balanced" : "Expanded";
+      miniTone.textContent = intensity <= 3 ? "Smooth" : intensity <= 7 ? "Forward" : "Electric";
+    }
+
+    function updateIntensityLabel() {
+      intensityValue.textContent = `${intensityRange.value} / 10`;
+      updateHeroMeter();
+      updateMiniDashboard();
+    }
+
+    function applyPreset(text, intensity) {
+      const styleField = document.getElementById("styleInput");
+      const slider = document.getElementById("intensity") || intensityControl;
+
+      if (styleField) {
+        styleField.value = text;
+        styleField.dispatchEvent(new Event("input", { bubbles: true }));
+        styleField.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+
+      if (slider && typeof intensity !== "undefined") {
+        slider.value = intensity;
+      }
+
+      if (typeof updateIntensityLabel === "function") {
+        updateIntensityLabel();
+      }
+
+      if (typeof updateEnergyMeter === "function") {
+        updateEnergyMeter();
+      } else if (typeof updateHeroMeter === "function") {
+        updateHeroMeter();
+      }
+    }
+
+    window.applyPreset = applyPreset;
+    window.updateEnergyMeter = window.updateEnergyMeter || updateHeroMeter;
+
+    function getProfile(styleText) {
+      const lower = styleText.toLowerCase();
+      for (const profile of styleProfiles) {
+        if (profile.keywords.some(keyword => lower.includes(keyword))) return profile;
+      }
+      return {
+        name: "Custom Vocal",
+        vibe: "Balanced, modern vocal shaping with clarity, dynamic control, and atmosphere designed around the mood you described.",
+        eqBase: { hp: 80, lowCutSlope: "18 dB/oct", mudFreq: 280, mudCut: -2.4, presenceFreq: 4000, presenceBoost: 2.5, airFreq: 12000, airBoost: 3.1, deEssFreq: 7000, deEssAmt: 3 },
+        compBase: { ratio: 3.2, threshold: -20, attack: 18, release: 90, gainReduction: 3.8, makeup: 2.1 },
+        fxBase: { reverbMix: 14, reverbDecay: 1.7, delayMix: 12, delayTime: "1/8", pitch: "Optional subtle widening" },
+        learn: {
+          eq: "This gives the vocal a controlled foundation with enough presence and air to stay articulate in the mix.",
+          comp: "Moderate compression stabilizes levels and helps the vocal keep its place without feeling crushed.",
+          fx: "Tasteful ambience adds size and tone while preserving vocal focus."
+        }
+      };
+    }
+
+   function interpolateIntensity(intensity, low, mid, high) {
+  if (intensity <= 5) {
+    const t = (intensity - 1) / 4;
+    return low + (mid - low) * t;
+  }
+  const t = (intensity - 5) / 5;
+  return mid + (high - mid) * t;
+}
+
+function scaleProfile(profile, intensity) {
+  const toneMultiplier = intensity / 5;
+  const attackTightening = interpolateIntensity(intensity, 0, 4, 10);
+  const releaseTightening = interpolateIntensity(intensity, 0, 10, 26);
+  const wetMix = interpolateIntensity(intensity, 10, 20, 35);
+  const saturationAmount = interpolateIntensity(intensity, 3, 8, 15);
+
+  const mudCut = profile.eqBase.mudCut * toneMultiplier;
+  const presenceBoost = profile.eqBase.presenceBoost * toneMultiplier;
+  const airBoost = profile.eqBase.airBoost * toneMultiplier;
+  const deEssAmt = profile.eqBase.deEssAmt * Math.max(0.8, intensity / 6);
+
+  return {
+    eq: {
+      hp: Math.round(profile.eqBase.hp + interpolateIntensity(intensity, 0, 8, 18)),
+      lowCutSlope: profile.eqBase.lowCutSlope,
+      mudFreq: profile.eqBase.mudFreq,
+      mudCut,
+      presenceFreq: profile.eqBase.presenceFreq,
+      presenceBoost,
+      airFreq: profile.eqBase.airFreq,
+      airBoost,
+      deEssFreq: profile.eqBase.deEssFreq,
+      deEssAmt
+    },
+    comp: {
+      ratio: interpolateIntensity(intensity, 2, 4, 8),
+      threshold: profile.compBase.threshold - interpolateIntensity(intensity, 0, 4, 10),
+      attack: clamp(profile.compBase.attack - attackTightening, 2, 35),
+      release: Math.round(clamp(profile.compBase.release - releaseTightening, 45, 180)),
+      gainReduction: interpolateIntensity(intensity, 2, 5, 10),
+      makeup: profile.compBase.makeup + interpolateIntensity(intensity, 0.5, 2, 4)
+    },
+    fx: {
+      reverbMix: wetMix,
+      reverbDecay: profile.fxBase.reverbDecay + interpolateIntensity(intensity, 0, 0.35, 1.1),
+      delayMix: clamp(wetMix - 2 + profile.fxBase.delayMix * 0.15, 10, 35),
+      delayTime: profile.fxBase.delayTime,
+      pitch: profile.fxBase.pitch,
+      saturationAmount
+    }
+  };
+}
+
+    function fxFlavor(styleText, intensity) {
+      const lower = styleText.toLowerCase();
+      const high = intensity >= 7;
+
+      if (lower.includes("aggressive") || lower.includes("rap") || lower.includes("drill") || lower.includes("trap")) {
+        return { reverbType: "Short plate", delayType: high ? "Ping-pong slap / 1-8" : "Tight stereo slap", pitchExtra: high ? "Optional octave ad-lib throws" : "Light doubler only" };
+      }
+      if (lower.includes("r&b") || lower.includes("smooth") || lower.includes("soul")) {
+        return { reverbType: "Silky hall / lush plate", delayType: "1/4 dotted stereo delay", pitchExtra: "Subtle stereo widening detune" };
+      }
+      if (lower.includes("chopped") || lower.includes("screwed") || lower.includes("slow")) {
+        return { reverbType: "Dark hall", delayType: "1/2 note echo with filtered repeats", pitchExtra: "Blend pitched-down parallel layer" };
+      }
+      if (lower.includes("pop") || lower.includes("bright")) {
+        return { reverbType: "Bright plate", delayType: "1/8 dotted synced delay", pitchExtra: "Micro-pitch widen for hooks" };
+      }
+
+      return { reverbType: "Controlled plate", delayType: high ? "Stereo 1/8 delay" : "Short synced delay", pitchExtra: "Optional subtle width" };
+    }
+
+    function renderSettingLines(container, items) {
+      container.innerHTML = items.map(item => `<div class="setting-line"><strong>${item.label}</strong><span>${item.value}</span></div>`).join("");
+    }
+
+    function generateChain() {
+      const style = styleInput.value.trim() || "modern vocal";
+      const daw = dawSelect.value;
+      const intensity = Number(intensityRange.value);
+      const learnMode = learnToggle.checked;
+      const profile = getProfile(style);
+      const plugins = pluginMap[daw];
+      const scaled = scaleProfile(profile, intensity);
+      const fxStyle = fxFlavor(style, intensity);
+
+renderSettingLines(fxSettings, [
+  { label: "Reverb", value: `${fxStyle.reverbType} | Mix ${scaled.fx.reverbMix.toFixed(1)}% | Decay ${scaled.fx.reverbDecay.toFixed(1)}s | Pre-delay ${Math.round(18 + intensity * 3)} ms` },
+  { label: "Delay", value: `${fxStyle.delayType} | Mix ${scaled.fx.delayMix.toFixed(1)}% | Time ${scaled.fx.delayTime} | Low-cut 180 Hz / High-cut ${Math.round(4200 + intensity * 280)} Hz` },
+  { label: "Pitch", value: `${scaled.fx.pitch} | ${fxStyle.pitchExtra}` },
+  { label: "Saturation", value: `${scaled.fx.saturationAmount.toFixed(1)}% drive | ${intensity <= 3 ? "subtle warmth" : intensity <= 7 ? "present harmonic lift" : "aggressive harmonic color"}` }
+]);
+
+      const vibeVariants = [
+        `${profile.vibe} At intensity ${intensity}, the chain leans ${intensity >= 7 ? "bolder, brighter, and more tightly controlled" : intensity <= 3 ? "softer, smoother, and more natural" : "balanced with modern polish and confident focus"}.`,
+        `For "${style}", this setup targets a ${profile.name.toLowerCase()} direction with ${intensity >= 7 ? "stronger contouring, heavier grip, and more dramatic ambience" : intensity <= 3 ? "lighter shaping, easier dynamics, and restrained space" : "clean definition, stable tone, and intentional depth"}.`,
+        `This chain is voiced for a ${profile.name.toLowerCase()} feel: ${intensity >= 7 ? "more edge, firmer control, and heightened excitement" : intensity <= 3 ? "more openness, softer contour, and subtle width" : "clear articulation with enough character to feel premium"}.`
+      ];
+
+      vibeText.textContent = vibeVariants[intensity % vibeVariants.length];
+      metaStyle.textContent = `Style: ${style}`;
+      metaDaw.textContent = `DAW: ${daw}`;
+      metaIntensity.textContent = `Intensity: ${intensity}/10`;
+
+      eqPlugin.textContent = plugins.eq;
+      renderSettingLines(eqSettings, [
+        { label: "High-pass", value: `${scaled.eq.hp} Hz, ${scaled.eq.lowCutSlope}` },
+        { label: "Low-Mid Cut", value: `${scaled.eq.mudFreq} Hz at ${formatDb(scaled.eq.mudCut)} (Q 1.2)` },
+        { label: "Presence", value: `${(scaled.eq.presenceFreq / 1000).toFixed(1)} kHz at ${formatDb(scaled.eq.presenceBoost)} (wide bell)` },
+        { label: "Air Shelf", value: `${(scaled.eq.airFreq / 1000).toFixed(1)} kHz at ${formatDb(scaled.eq.airBoost)}` },
+        { label: "De-Ess", value: `${(scaled.eq.deEssFreq / 1000).toFixed(1)} kHz, reduce ${scaled.eq.deEssAmt.toFixed(1)} dB as needed` }
+      ]);
+
+      compPlugin.textContent = plugins.comp;
+      renderSettingLines(compSettings, [
+        { label: "Ratio", value: `${scaled.comp.ratio.toFixed(1)}:1` },
+        { label: "Threshold", value: `${scaled.comp.threshold.toFixed(1)} dB` },
+        { label: "Attack", value: `${scaled.comp.attack.toFixed(0)} ms` },
+        { label: "Release", value: `${scaled.comp.release.toFixed(0)} ms` },
+        { label: "Target GR", value: `${scaled.comp.gainReduction.toFixed(1)} dB gain reduction` },
+        { label: "Makeup", value: `${formatDb(scaled.comp.makeup)}` }
+      ]);
+
+      fxPlugin.textContent = plugins.fx;
+      renderSettingLines(fxSettings, [
+        { label: "Reverb", value: `${fxStyle.reverbType} | Mix ${scaled.fx.reverbMix.toFixed(1)}% | Decay ${scaled.fx.reverbDecay.toFixed(1)}s | Pre-delay ${Math.round(18 + intensity * 3)} ms` },
+        { label: "Delay", value: `${fxStyle.delayType} | Mix ${scaled.fx.delayMix.toFixed(1)}% | Time ${scaled.fx.delayTime} | Low-cut 180 Hz / High-cut ${Math.round(4200 + intensity * 280)} Hz` },
+        { label: "Pitch", value: `${scaled.fx.pitch} | ${fxStyle.pitchExtra}` }
+      ]);
+
+      eqLearn.hidden = !learnMode;
+      compLearn.hidden = !learnMode;
+      fxLearn.hidden = !learnMode;
+
+      eqLearn.textContent = profile.learn.eq;
+      compLearn.textContent = profile.learn.comp;
+      fxLearn.textContent = profile.learn.fx;
+
+      resultsBadge.textContent = `${profile.name} chain ready`;
+      emptyState.style.display = "none";
+      resultContent.classList.remove("show");
+      void resultContent.offsetWidth;
+      resultContent.classList.add("show");
+    }
+
+    intensityRange.addEventListener("input", updateIntensityLabel);
+    styleInput.addEventListener("input", updateMiniDashboard);
+    generateBtn.addEventListener("click", generateChain);
+
+    buildHeroMeter();
+    updateIntensityLabel();
+  </script>
+</body>
+</html>

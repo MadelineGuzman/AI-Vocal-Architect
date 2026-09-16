@@ -3,6 +3,12 @@
 
 # Local environment and generated output
 .env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
 node_modules/
 dist/
 *.log
+.wrangler/
+.local-backups/

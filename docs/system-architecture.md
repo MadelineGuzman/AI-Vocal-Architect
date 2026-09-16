@@ -1,5 +1,7 @@
 # System Architecture
 
+> Historical prototype description retained for provenance. The current development architecture is React/Vite plus Express, described in [the project README](../README.md) and [the rebuild comparison](rebuild-comparison.md). This page does not define the current entry point or release configuration.
+
 AI Vocal Architect is organized as a lightweight production tool with a single-page application front end and export-oriented support features.
 
 ## Core Layers

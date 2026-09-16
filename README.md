@@ -1,103 +1,47 @@
-# AI Vocal Architect
+# Cadenzai
 
-AI Vocal Architect is a production-focused tool for designing repeatable vocal processing chains from style intent, DAW context, and mix intensity. It explores how AI-assisted decision systems can speed up vocal production without removing engineering judgment from the process.
+Cadenzai is an audio production workspace combining the Google AI Studio React rebuild with the earlier project's history and Hum to Spark integration.
 
-The project is built around a practical studio question: how do you turn a creative description such as "aggressive rap lead" or "warm intimate R&B vocal" into a structured signal chain quickly, consistently, and in a way that still leaves room for taste?
+## One source of truth
 
-## Overview
+- Repository: https://github.com/MadelineGuzman/AI-Vocal-Architect
+- Working folder: `Cadenzai`
+- Current development branch: `feature/google-ai-studio-overhaul`
+- Current application: `src/`, root `index.html`, and `server.ts`.
+- The Google-overhaul repository is a superseded import source, not a second development destination.
 
-AI Vocal Architect maps high-level vocal goals to concrete processing decisions. It generates vocal chain blueprints that include EQ moves, compression behavior, de-essing targets, ambience settings, and DAW-aware plugin recommendations.
+`main` is still the older GitHub Pages publication branch. Do not merge the rebuild into it as routine folder cleanup: Pages publishes that branch automatically, and production hosting for the new server has not been reconciled.
 
-Rather than acting as a one-click mixer, the system is designed as a production assistant. It provides a strong technical starting point that engineers can adjust inside their own session workflow.
+## Local development
 
-## System Goals
+The repository has a Bun lockfile. With Bun installed, use `bun install --frozen-lockfile` for a fresh dependency installation. Existing installed dependencies can also run the scripts through npm.
 
-- Improve efficiency by reducing time spent building common vocal chains from scratch
-- Increase consistency across sessions, artists, and delivery formats
-- Support creative augmentation by translating descriptive language into usable mix decisions
-- Encourage systemized engineering habits without flattening artistic variation
+```sh
+npm run dev
+npm run typecheck
+npm test
+npm run build
+```
 
-## Feature Breakdown
+The Express development server listens on port 3000. Gemini chat requires `GEMINI_API_KEY` in the server process environment. `.env.example` lists the variable; the current server does not automatically load a `.env` file. Never place this key in frontend variables or source code. Without the key, the workspace runs but chat returns a configuration error.
 
-### Vocal Chain Design
+For the built server, set `NODE_ENV=production` in the process environment before `npm start`. Production release remains pending; see the limitations below.
 
-- Generates structured vocal processing chains from style input
-- Builds parameter suggestions for EQ, compression, de-essing, saturation, delay, and reverb
-- Adapts chain behavior based on user-selected intensity
+## Preserved earlier work
 
-### Preset System
+- `public/app/`, `public/index.html`, and `public/styles.css`: earlier modular application, preserved for feature migration and regression checks.
+- `worker.js` and `wrangler.toml`: restored earlier Cloudflare owner authentication and static deployment configuration. This serves the earlier `public/` app, not the new Express API.
+- `archive/legacy-prototype/`: standalone prototype recovered from the separate AI Vocal Architect folder.
+- `legacy_index.html`, `legacy_server.js`, and `public/legacy_index.html`: snapshots already present in the AI Studio import.
+- `assets/visuals/`: recovered artwork. The white logo lives in `src/assets/branding/`.
+- `chains/`, `examples/`, and older `docs/`: retained product knowledge; historical descriptions do not establish current feature parity.
 
-- Includes predefined vocal profiles for multiple production styles
-- Uses style-aware defaults for tonal balance, dynamics control, and ambience
-- Supports rapid A/B exploration through alternate vibe adjustments
+Start with [the rebuild comparison](docs/rebuild-comparison.md) and [the preservation manifest](docs/consolidation-manifest.json).
 
-### DAW-Aware Output
+## Known gaps before release
 
-- Formats recommendations around common DAW-native workflows
-- Maps settings to practical plugin choices rather than abstract concepts alone
-- Supports exportable settings for reuse and documentation
+The React rebuild is the development baseline, not yet a feature-complete replacement. Project persistence, old-data migration, vocal-chain generation/export, and Spark-to-project promotion still need to be brought forward. Some imported findings are demo data. Settings and Share are placeholders.
 
-### Preview and Monitoring Concepts
+Owner authentication is restored for the Cloudflare Worker only. The Express server does not implement that owner login boundary, and its static build includes files copied from `public/`; it must not be treated as a secured production deployment. Hosting, API access controls, environment loading, and exclusion/protection of private assets need an explicit release pass.
 
-- Demonstrates dry vs. wet comparison logic for vocal previewing
-- Surfaces chain state visually through EQ response and signal-flow displays
-- Exposes parameter-level debug and export data for validation
-
-### Automation and Systemization Concepts
-
-- Encodes repeatable vocal processing logic into reusable chain structures
-- Encourages standardized session setup for leads, doubles, and supporting vocals
-- Creates a framework for future expansion into preset recall, chain history, and assistant-driven routing
-
-## Technologies Used
-
-### Audio Production
-
-- DAWs such as FL Studio, Logic Pro, Pro Tools, Ableton, and REAPER
-- Native and stock plugin workflows including EQ, compression, reverb, delay, pitch, and saturation tools
-- Studio-style vocal chain concepts based on real mix-engineering practice
-
-### Application Layer
-
-- Vanilla HTML, CSS, and JavaScript
-- Web Audio API for local preview and signal-chain demonstration
-- Local storage for saved chain history and session recall concepts
-
-### AI and Decision Support
-
-- Natural-language interpretation for vocal style intent
-- Rule-based preset mapping and chain scaling logic
-- AI-assisted workflow concepts for production planning and parameter recommendation
-
-## Example Workflow
-
-1. Enter a vocal style description or choose a preset.
-2. Select the target DAW so the system can recommend practical plugin equivalents.
-3. Set intensity to control how aggressively the chain shapes tone, dynamics, and ambience.
-4. Generate the chain to receive EQ, compression, and FX recommendations.
-5. Review the annotated EQ curve, signal-flow summary, and parameter blocks.
-6. Export the chain as text or JSON for session notes, recall, or implementation.
-7. Rebuild the chain inside the DAW, then refine by ear for the specific performer and arrangement.
-
-## Production Use Case
-
-AI Vocal Architect is best positioned as a pre-mix decision tool. It helps engineers move from rough creative direction to a technically grounded vocal chain quickly, making it useful for:
-
-- vocal template creation
-- fast client turnaround sessions
-- preset prototyping
-- educational demonstrations of vocal processing logic
-- documenting repeatable chain decisions across projects
-
-## Future Improvements
-
-- Session-specific chain variation for lead, double, ad-lib, and background vocals
-- Deeper DAW integration and plugin parameter translation
-- Smarter preview rendering that reflects pitch and time-based effects more accurately
-- Better chain auditioning with multiband and serial/parallel processing models
-- Expanded AI interpretation for genre hybrids and artist-reference prompts
-- Preset versioning, shareable chain snapshots, and collaborative export workflows
-
-## Status
-
-This project is an active exploration of AI-assisted vocal production design. It is intended to demonstrate how engineering systems, interactive tooling, and AI-guided decision support can work together inside a modern audio workflow.
+Browser-local projects and recordings, provider secrets, and hosting settings are not backed up by Git. The two application versions use different localStorage metadata keys, even though their Spark audio database name/store match; no automatic migration has been implemented.
