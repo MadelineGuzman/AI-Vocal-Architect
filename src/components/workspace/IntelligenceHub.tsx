@@ -55,6 +55,10 @@ export const IntelligenceHub: React.FC = () => {
   const handleSend = async () => {
     if (!input.trim() || isTyping) return;
 
+    // Capture which project this request belongs to, so a slow response cannot
+    // land in a different project after the user switches.
+    const requestProjectId = useProjectStore.getState().projectId;
+
     const userMsg = { id: `msg-${Date.now()}`, role: 'user' as const, content: input.trim(), timestamp: Date.now() };
     addChatMessage(userMsg);
     setInput('');
@@ -80,16 +84,16 @@ export const IntelligenceHub: React.FC = () => {
 
     try {
       const responseText = await AssistantService.sendMessage([...chatHistory, userMsg], context, controller.signal);
-      addChatMessage({ id: `msg-${Date.now()+1}`, role: 'assistant', content: responseText, timestamp: Date.now()+1 });
+      if (useProjectStore.getState().projectId === requestProjectId) {
+        addChatMessage({ id: `msg-${Date.now()+1}`, role: 'assistant', content: responseText, timestamp: Date.now()+1 });
+      }
     } catch (err: any) {
-      if (err.name !== 'AbortError') {
+      if (err.name !== 'AbortError' && useProjectStore.getState().projectId === requestProjectId) {
         addChatMessage({ id: `msg-${Date.now()+1}`, role: 'assistant', content: `Error: ${err.message}`, timestamp: Date.now()+1 });
       }
     } finally {
-      if (useProjectStore.getState().abortController === controller) {
-         setAbortController(null);
-         setIsTyping(false);
-      }
+      if (useProjectStore.getState().abortController === controller) setAbortController(null);
+      setIsTyping(false);
     }
   };
 
@@ -122,8 +126,21 @@ export const IntelligenceHub: React.FC = () => {
       {!isChatOpen ? (
         <div ref={listRef} className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
           {findings.length === 0 && (
-            <div className="text-zinc-500 text-sm text-center mt-12 px-6">
-              No analysis data yet. Import an audio file to begin.
+            <div className="text-zinc-500 text-sm text-center mt-12 px-6 space-y-2">
+              {!audioFileName ? (
+                <p>No audio imported yet. Import a recording to begin.</p>
+              ) : sections.length < 2 ? (
+                <>
+                  <p>Audio is loaded, but there are no measured findings yet.</p>
+                  <p className="text-zinc-600 text-xs">Define at least two sections to enable measured energy comparisons between them.</p>
+                  <p className="text-zinc-600 text-xs">No findings does not mean the recording is problem-free — only section-to-section energy has been measured.</p>
+                </>
+              ) : (
+                <>
+                  <p>No measured energy issues were found between your sections.</p>
+                  <p className="text-zinc-600 text-xs">Adjacent sections have expected energy differences. This does not mean the recording has no problems — only energy transitions are measured, not tuning, timing, masking, or spectral balance.</p>
+                </>
+              )}
             </div>
           )}
           {findings.map(finding => (

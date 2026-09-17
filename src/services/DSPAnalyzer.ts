@@ -1,137 +1,87 @@
-import { Finding, SongSection } from '../types';
+import type { Finding, SongSection } from '../types';
 
 export class DSPAnalyzer {
-  static async fetchAndDecodeAudio(fileUrl: string): Promise<AudioBuffer> {
-    const response = await fetch(fileUrl);
-    const arrayBuffer = await response.arrayBuffer();
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    const audioContext = new AudioContextClass();
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-    return audioBuffer;
+  static async analyzeBlob(audio: Blob): Promise<{ duration: number; powers: number[] }> {
+    const context = new AudioContext();
+    try {
+      const buffer = await context.decodeAudioData(await audio.arrayBuffer());
+      return { duration: buffer.duration, powers: DSPAnalyzer.calculateWindowedPower(buffer) };
+    } catch {
+      throw new Error('This audio file could not be decoded. Try a WAV or MP3 recording. Your current project has not been replaced.');
+    } finally { await context.close(); }
   }
 
-  static calculateWindowedPower(audioBuffer: AudioBuffer, windowSizeSeconds: number = 0.5): number[] {
-    const channelDataL = audioBuffer.getChannelData(0);
-    const isStereo = audioBuffer.numberOfChannels > 1;
-    const channelDataR = isStereo ? audioBuffer.getChannelData(1) : channelDataL;
-
-    const sampleRate = audioBuffer.sampleRate;
-    const windowSizeSamples = Math.floor(windowSizeSeconds * sampleRate);
-
-    const powerValues: number[] = [];
-
-    for (let i = 0; i < channelDataL.length; i += windowSizeSamples) {
-      let sumSquares = 0;
-      let count = 0;
-      const end = Math.min(i + windowSizeSamples, channelDataL.length);
-
-      for (let j = i; j < end; j++) {
-        // Sum the squared amplitude for both channels to get total power
-        sumSquares += (channelDataL[j] * channelDataL[j]) + (channelDataR[j] * channelDataR[j]);
-        count += 2;
+  static calculateWindowedPower(buffer: AudioBuffer, windowSizeSeconds = 0.5): number[] {
+    if (!(windowSizeSeconds > 0) || !Number.isFinite(windowSizeSeconds)) throw new Error('Invalid analysis window.');
+    const windowSize = Math.max(1, Math.floor(buffer.sampleRate * windowSizeSeconds));
+    const channels = Array.from({ length: buffer.numberOfChannels }, (_, index) => buffer.getChannelData(index));
+    const powers: number[] = [];
+    for (let start = 0; start < buffer.length; start += windowSize) {
+      const end = Math.min(start + windowSize, buffer.length);
+      let sum = 0;
+      for (const channel of channels) {
+        for (let sample = start; sample < end; sample++) sum += channel[sample] ** 2;
       }
-
-      const power = sumSquares / count;
-      powerValues.push(power);
+      powers.push(sum / ((end - start) * channels.length));
     }
-
-    return powerValues;
+    return powers;
   }
 
   static powerToDBFS(power: number): number {
-    if (power === 0) return -100;
-    // Since power is RMS^2, we can convert power directly: 10 * log10(power) = 20 * log10(RMS)
-    const dbfs = 10 * Math.log10(power);
-    return Math.max(dbfs, -100);
+    return Number.isFinite(power) && power > 0 ? Math.max(10 * Math.log10(power), -100) : -100;
   }
 
-  static calculateSectionEnergies(powerValues: number[], windowSizeSeconds: number, sections: SongSection[]) {
-    // Find track max DBFS to establish a relative silence floor
-    let trackMaxDBFS = -100;
-    for (const p of powerValues) {
-      const dbfs = this.powerToDBFS(p);
-      if (dbfs > trackMaxDBFS) trackMaxDBFS = dbfs;
-    }
-    const activityThresholdDBFS = Math.max(-60, trackMaxDBFS - 24);
-
+  static calculateSectionEnergies(powers: number[], windowSizeSeconds: number, sections: SongSection[]) {
+    const trackMax = powers.reduce((max, power) => Math.max(max, DSPAnalyzer.powerToDBFS(power)), -100);
+    const threshold = Math.max(-60, trackMax - 24);
+    const measuredEnd = powers.length * windowSizeSeconds;
     return sections.map(section => {
-      const startIndex = Math.floor(section.timeRange.start / windowSizeSeconds);
-      const endIndex = section.timeRange.end
-        ? Math.ceil(section.timeRange.end / windowSizeSeconds)
-        : powerValues.length;
-
-      const safeEndIndex = Math.min(endIndex, powerValues.length);
-
-      let sumPower = 0;
-      let count = 0;
-      let activeCount = 0;
-
-      for (let i = startIndex; i < safeEndIndex; i++) {
-        sumPower += powerValues[i];
-        count++;
-        if (this.powerToDBFS(powerValues[i]) > activityThresholdDBFS) {
-          activeCount++;
+      const start = Math.max(0, section.timeRange.start);
+      const end = Math.min(section.timeRange.end ?? measuredEnd, measuredEnd);
+      let sum = 0;
+      let weight = 0;
+      let active = 0;
+      if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+        for (let index = Math.floor(start / windowSizeSeconds); index < Math.ceil(end / windowSizeSeconds); index++) {
+          const power = powers[index];
+          if (!Number.isFinite(power) || power < 0) continue;
+          const seconds = Math.max(0, Math.min(end, (index + 1) * windowSizeSeconds) - Math.max(start, index * windowSizeSeconds));
+          sum += power * seconds;
+          weight += seconds;
+          if (DSPAnalyzer.powerToDBFS(power) > threshold) active += seconds;
         }
       }
-
-      const averagePower = count > 0 ? sumPower / count : 0;
-      const dbfs = this.powerToDBFS(averagePower);
-      const activityPercentage = count > 0 ? (activeCount / count) * 100 : 0;
-
-      return {
-        section,
-        averageDBFS: dbfs,
-        activityPercentage
-      };
+      return { section, averageDBFS: DSPAnalyzer.powerToDBFS(weight ? sum / weight : 0),
+        activityPercentage: weight ? active / weight * 100 : 0, measuredSeconds: weight };
     });
   }
 
-  static generateEnergyFindings(powerValues: number[], sections: SongSection[]): Finding[] {
-    const windowSize = 0.5; // MUST MATCH THE ONE USED IN calculateWindowedPower
-    const sectionEnergies = this.calculateSectionEnergies(powerValues, windowSize, sections);
-
+  static generateEnergyFindings(powers: number[], sections: SongSection[]): Finding[] {
+    const energies = DSPAnalyzer.calculateSectionEnergies(powers, 0.5, [...sections].sort((a, b) => a.timeRange.start - b.timeRange.start));
     const findings: Finding[] = [];
-
-    // Analyze adjacent sections for energy transitions
-    for (let i = 0; i < sectionEnergies.length - 1; i++) {
-      const current = sectionEnergies[i];
-      const next = sectionEnergies[i + 1];
-
-      const diffDB = next.averageDBFS - current.averageDBFS;
-      // Deterministic ID based on sections being compared
-      const deterministicId = `dsp-energy-${current.section.id}-${next.section.id}`;
-
-      if (Math.abs(diffDB) < 1.0) {
-        findings.push({
-          id: deterministicId,
-          timeRange: next.section.timeRange,
-          relatedTimeRanges: [current.section.timeRange],
-          category: 'arrangement',
-          observation: `Energy does not change significantly from ${current.section.name} to ${next.section.name}`,
-          evidence: `${current.section.name} average: ${current.averageDBFS.toFixed(1)} dBFS. ${next.section.name} average: ${next.averageDBFS.toFixed(1)} dBFS. Difference: ${(diffDB > 0 ? '+' : '')}${diffDB.toFixed(1)} dB.`,
-          confidence: 95,
-          explanation: `The measured energy difference between the preceding ${current.section.name.toLowerCase()} and ${next.section.name.toLowerCase()} is relatively small (${diffDB.toFixed(1)} dB). Typically, new sections use contrast in density or loudness to feel impactful.`,
-          recommendation: `If you intended the ${next.section.name.toLowerCase()} to create a larger sense of contrast or lift, you may want to investigate arrangement density, dynamics, or instrumentation.`,
-          userStatus: 'open',
-          provenance: 'real-dsp'
-        });
-      } else if (diffDB > 4.0) {
-         findings.push({
-          id: deterministicId,
-          timeRange: next.section.timeRange,
-          relatedTimeRanges: [current.section.timeRange],
-          category: 'mixing',
-          observation: `Large energy jump entering ${next.section.name}`,
-          evidence: `${current.section.name} average: ${current.averageDBFS.toFixed(1)} dBFS. ${next.section.name} average: ${next.averageDBFS.toFixed(1)} dBFS. Difference: +${diffDB.toFixed(1)} dB.`,
-          confidence: 90,
-          explanation: `There is a significant increase in measured energy (+${diffDB.toFixed(1)} dB) when transitioning into the ${next.section.name.toLowerCase()}.`,
-          recommendation: `This may be an intentional dynamic shift, but if it feels too abrupt, consider automating the volume of incoming elements or using a transition effect (like a swell or drum fill) to smooth the entry.`,
-          userStatus: 'open',
-          provenance: 'real-dsp'
-        });
-      }
+    for (let index = 0; index < energies.length - 1; index++) {
+      const current = energies[index];
+      const next = energies[index + 1];
+      // Do not turn empty, silent or overlapping selections into production advice.
+      if (!current.measuredSeconds || !next.measuredSeconds ||
+          (!current.activityPercentage && !next.activityPercentage) ||
+          (current.section.timeRange.end ?? powers.length * 0.5) > next.section.timeRange.start) continue;
+      const difference = next.averageDBFS - current.averageDBFS;
+      const similar = Math.abs(difference) < 1;
+      if (!similar && Math.abs(difference) <= 4) continue;
+      const direction = difference > 0 ? 'increase' : 'decrease';
+      findings.push({
+        id: `dsp-energy-${current.section.id}-${next.section.id}`,
+        timeRange: next.section.timeRange, relatedTimeRanges: [current.section.timeRange],
+        category: similar ? 'arrangement' : 'mixing',
+        observation: similar ? `Similar measured energy: ${current.section.name} to ${next.section.name}` : `Measured energy ${direction} entering ${next.section.name}`,
+        evidence: `${current.section.name}: ${current.averageDBFS.toFixed(1)} dBFS, ${current.activityPercentage.toFixed(0)}% active audio. ${next.section.name}: ${next.averageDBFS.toFixed(1)} dBFS, ${next.activityPercentage.toFixed(0)}% active audio. Difference: ${difference >= 0 ? '+' : ''}${difference.toFixed(1)} dB. Estimated from 0.5-second windows.`,
+        confidence: 90,
+        explanation: 'This compares measured average energy and audio activity. It does not identify instruments, masking, pitch accuracy, or whether your arrangement is right or wrong.',
+        recommendation: similar ? 'Listen across the transition. If you intended more contrast, experiment with level or arrangement; similar energy can also be intentional.' : 'Listen across the transition and compare it with your intent. Adjust the level only if the change feels unintended.',
+        userStatus: 'open', provenance: 'real-dsp',
+      });
     }
-
     return findings;
   }
 }

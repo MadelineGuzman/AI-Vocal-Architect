@@ -4,16 +4,17 @@ import { Plus, Trash2 } from 'lucide-react';
 import { SongSection } from '../../types';
 
 export const SectionEditor: React.FC = () => {
-  const { sections, addSection, updateSection, removeSection, duration, currentTime } = useProjectStore();
+  const { sections, addSection, updateSection, removeSection, duration, currentTime, sectionError } = useProjectStore();
 
   const handleAddSection = () => {
-    const start = currentTime;
+    // Leave room so the default section is a valid range even near the end of the track.
+    const start = Math.min(currentTime, Math.max(0, duration - 1));
     const end = Math.min(start + 15, duration);
     const newSection: SongSection = {
       id: `sec-${Date.now()}`,
-      name: 'New Section',
+      name: 'Verse',
       timeRange: { start, end },
-      color: '#3f3f46',
+      color: '#1d4ed8',
       provenance: 'artist'
     };
     addSection(newSection);
@@ -44,21 +45,32 @@ export const SectionEditor: React.FC = () => {
         </button>
       </div>
 
+      {sectionError && (
+        <p role="alert" className="text-xs text-red-300 mb-3 -mt-1">{sectionError}</p>
+      )}
+
       <div className="flex gap-3 overflow-x-auto pb-2 min-h-[80px]">
         {sections.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-zinc-600 text-xs italic">
             No sections defined. Add sections to enable structural energy analysis.
           </div>
         ) : (
-          sections.map(section => (
+          sections.map(section => {
+            const isPreset = SECTION_TYPES.some(t => t.name === section.name) && section.name !== 'Custom';
+            const isCustom = !isPreset;
+            return (
             <div key={section.id} className="min-w-[200px] bg-zinc-950/50 border border-zinc-800 rounded-lg p-3 flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <select
-                  value={SECTION_TYPES.find(t => t.name === section.name) ? section.name : 'Custom'}
+                  value={isPreset ? section.name : 'Custom'}
                   onChange={(e) => {
-                    const type = SECTION_TYPES.find(t => t.name === e.target.value);
-                    if (type) {
-                      updateSection(section.id, { name: type.name, color: type.color });
+                    if (e.target.value === 'Custom') {
+                      // Switch to a custom name without discarding a name the artist may re-type.
+                      const preset = SECTION_TYPES.find(t => t.name === 'Custom')!;
+                      updateSection(section.id, { name: '', color: preset.color });
+                    } else {
+                      const type = SECTION_TYPES.find(t => t.name === e.target.value);
+                      if (type) updateSection(section.id, { name: type.name, color: type.color });
                     }
                   }}
                   className="bg-transparent text-sm font-semibold text-zinc-200 outline-none cursor-pointer"
@@ -78,12 +90,12 @@ export const SectionEditor: React.FC = () => {
                 </button>
               </div>
 
-              {section.name === 'Custom' && (
+              {isCustom && (
                 <input
                   type="text"
                   value={section.name}
                   onChange={(e) => updateSection(section.id, { name: e.target.value })}
-                  placeholder="Section Name"
+                  placeholder="Section name"
                   className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-300"
                 />
               )}
@@ -111,7 +123,8 @@ export const SectionEditor: React.FC = () => {
                 </div>
               </div>
             </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

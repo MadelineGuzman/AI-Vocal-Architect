@@ -1,8 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useProjectStore } from '../store/projectStore';
 import { AssetMetadata } from '../types';
-import { DSPAnalyzer } from '../services/DSPAnalyzer';
-import { AnalysisService } from '../services/AnalysisService';
 import { Upload, X, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -31,7 +29,8 @@ const CONTENT_LABELS = [
 ];
 
 export const ImportAudioDialog: React.FC = () => {
-  const { isImportModalOpen, setIsImportModalOpen, setAudio, setFindings, setWindowedPowers, setIsAnalyzing } = useProjectStore();
+  const { isImportModalOpen, setIsImportModalOpen, importAudio, projectId, audioBlob } = useProjectStore();
+  const attaching = Boolean(projectId && !audioBlob);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -40,6 +39,7 @@ export const ImportAudioDialog: React.FC = () => {
   const [userLabel, setUserLabel] = useState<string>('');
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const resetState = () => {
     setSelectedFile(null);
@@ -47,6 +47,7 @@ export const ImportAudioDialog: React.FC = () => {
     setContent('');
     setUserLabel('');
     setIsProcessing(false);
+    setError(null);
   };
 
   const handleClose = () => {
@@ -71,26 +72,16 @@ export const ImportAudioDialog: React.FC = () => {
       userLabel
     };
 
-    const url = URL.createObjectURL(selectedFile);
-
     setIsProcessing(true);
-    setIsAnalyzing(true);
-    setAudio(url, selectedFile.name, metadata);
-    setIsImportModalOpen(false); // Close dialog immediately and show main loading state
-    resetState();
-
+    setError(null);
     try {
-      const audioBuffer = await DSPAnalyzer.fetchAndDecodeAudio(url);
-      const windowSize = 0.5;
-      const powerValues = DSPAnalyzer.calculateWindowedPower(audioBuffer, windowSize);
-      const mockAnalysis = await AnalysisService.analyzeAudio(url);
-
-      setFindings(mockAnalysis.findings);
-      setWindowedPowers(powerValues);
+      await importAudio(selectedFile, metadata, attaching);
+      setIsImportModalOpen(false);
+      resetState();
     } catch (err) {
-      console.error("Analysis failed:", err);
+      setError(err instanceof Error ? err.message : 'Audio could not be imported.');
     } finally {
-      setIsAnalyzing(false);
+      setIsProcessing(false);
     }
   };
 
@@ -100,10 +91,10 @@ export const ImportAudioDialog: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-full">
+      <div role="dialog" aria-modal="true" aria-label="Import audio" className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-full">
         <div className="flex items-center justify-between p-5 border-b border-zinc-800 bg-zinc-950/50">
           <h2 className="text-lg font-semibold text-zinc-100 flex items-center gap-2">
-            <Upload size={18} className="text-cyan-500" /> Import Audio
+            <Upload size={18} className="text-cyan-500" /> {attaching ? 'Attach Audio to Project' : 'Import Audio'}
           </h2>
           <button
             onClick={handleClose}
@@ -115,6 +106,8 @@ export const ImportAudioDialog: React.FC = () => {
         </div>
 
         <div className="p-6 overflow-y-auto flex-1 custom-scrollbar space-y-6">
+          <p className="text-xs text-zinc-400">{attaching ? 'Your recovered notes and original project data will be kept.' : 'Each recording starts a new project. Your current project is saved before switching.'}</p>
+          {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
           {!selectedFile ? (
             <div
               className="border-2 border-dashed border-zinc-700/50 rounded-xl p-10 flex flex-col items-center justify-center text-center hover:bg-zinc-800/50 hover:border-zinc-600 transition-all cursor-pointer group"
@@ -125,7 +118,7 @@ export const ImportAudioDialog: React.FC = () => {
               </div>
               <h3 className="text-zinc-200 font-medium mb-1">Select Audio File</h3>
               <p className="text-sm text-zinc-500">WAV, MP3, AIFF up to 100MB</p>
-              <input type="file" accept="audio/*" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+              <input aria-label="Audio file" type="file" accept="audio/*" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
             </div>
           ) : (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
