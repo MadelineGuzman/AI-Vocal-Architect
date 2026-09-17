@@ -23,7 +23,7 @@ npm test
 npm run build
 ```
 
-The Express development server listens on port 3000. Gemini chat requires `GEMINI_API_KEY` in the server process environment. `.env.example` lists the variable; the current server does not automatically load a `.env` file. Never place this key in frontend variables or source code. Without the key, the workspace runs but chat returns a configuration error.
+The Express development server listens on port 3000. Gemini chat requires `GEMINI_API_KEY`. The server loads a local, gitignored `.env` file at startup (via Node's built-in `process.loadEnvFile()`), so copy `.env.example` to `.env` and set the key there; the host process environment also works and takes precedence in production. Restart the server after changing `.env`. Never place this key in frontend variables or source code. Without the key, the workspace runs but chat returns a configuration error.
 
 For the built server, set `NODE_ENV=production` in the process environment before `npm start`. Production release remains pending; see the limitations below.
 

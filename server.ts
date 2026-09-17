@@ -4,6 +4,15 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 
 async function startServer() {
+  // Load secrets (e.g. GEMINI_API_KEY) from a local, gitignored .env file when
+  // present. In production the host environment supplies them instead. The key
+  // is only ever read server-side and never exposed to the client bundle.
+  try {
+    process.loadEnvFile();
+  } catch {
+    // No .env file found; fall back to the existing process environment.
+  }
+
   const app = express();
   const PORT = 3000;
 
