@@ -1,3 +1,6 @@
+import { readLevelReport } from './server/reaperLevels';
+import { createReaperReader, localRequestOnly } from './server/reaper';
+import { createAnalyzeHandler } from './server/reaperRequest';
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -15,6 +18,18 @@ async function startServer() {
 
   const app = express();
   const PORT = 3000;
+
+  app.use(localRequestOnly(PORT));
+  const readReaper = createReaperReader();
+  app.get('/api/reaper/state', async (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const [connection, levels] = await Promise.all([readReaper(), readLevelReport()]);
+    res.json({ ...connection, ...levels });
+  });
+
+  // Browser -> REAPER: ask the running bridge to measure the current selection.
+  // Read-only and narrowly scoped: the only effect is writing one request file.
+  app.post('/api/reaper/analyze', createAnalyzeHandler({ readConnection: readReaper, readLevels: readLevelReport }));
 
   // Setup JSON body parsing for API requests
   app.use(express.json());
@@ -132,7 +147,7 @@ ${context}`;
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, "127.0.0.1", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }

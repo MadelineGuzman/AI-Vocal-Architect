@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { validateLevelReport, readLevelReport } from '../server/reaperLevels';
+const lua=spawnSync('lua',['tests/reaper-levels.lua'],{encoding:'utf8'});
+assert.equal(lua.status,0,lua.error?.message || lua.stderr);
+const [raw,message]=lua.stdout.trim().split(/\r?\n/);
+const report=JSON.parse(raw);
+const ready=validateLevelReport(report,1000000);
+assert.ok(Math.abs(ready.metrics!.samplePeakDbfs!+6.02059991328)<0.00001);
+assert.ok(Math.abs(ready.metrics!.rmsDbfs!+9.03089986992)<0.00001);
+assert.equal(ready.startSeconds,10.25); assert.equal(ready.endSeconds,11.25);
+assert.throws(()=>validateLevelReport({...report,metrics:{...report.metrics,rmsDbfs:'fake'}},1000000));
+assert.throws(()=>validateLevelReport({...report,metrics:{...report.metrics,sampleCount:-1}},1000000));
+assert.throws(()=>validateLevelReport({...report,progress:0.5},1000000));
+assert.throws(()=>validateLevelReport({...report,updatedAt:1006000},1000000));
+assert.throws(()=>validateLevelReport({...report,endSeconds:500},1000000));
+assert.equal('privatePath' in validateLevelReport({...report,privatePath:'secret'},1000000),false);
+const folder=await mkdtemp(path.join(os.tmpdir(),'cadenzai-levels-test-'));
+const file=path.join(folder,'levels.json');
+try {
+  assert.equal((await readLevelReport(file,1000000)).levels,null);
+  await writeFile(file,raw);assert.equal((await readLevelReport(file,1000000)).levels?.status,'ready');
+  await writeFile(file,JSON.stringify({...report,status:'running',progress:0.5}));
+  assert.equal((await readLevelReport(file,1006000)).levels?.status,'error');
+  await writeFile(file,JSON.stringify({version:1,kind:'notice',message:'Reconnect the recording.',updatedAt:1000000}));
+  const notice=await readLevelReport(file,1000000);
+  assert.equal(notice.levels,null);assert.equal(notice.levelsNotice?.message,'Reconnect the recording.');
+  await writeFile(file,JSON.stringify({version:1,kind:'notice',message:12,updatedAt:1000000}));
+  assert.ok((await readLevelReport(file,1000000)).levelsError);
+  await writeFile(file,'{');assert.ok((await readLevelReport(file)).levelsError);
+  await writeFile(file,'x'.repeat(16385));assert.ok((await readLevelReport(file)).levelsError);
+  await writeFile(file,raw);assert.equal((await readLevelReport(file,1000000)).levels?.status,'ready');
+} finally {await rm(folder,{recursive:true,force:true});}
+console.log(message);console.log('Level report schema, bounded reads, stalled analysis and recovery tests passed.');

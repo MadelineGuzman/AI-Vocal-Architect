@@ -1,3 +1,4 @@
+import { ReaperConnection } from './components/ReaperConnection';
 import { useEffect } from 'react';
 import { TopBar } from './components/TopBar';
 import { ProjectBar } from './components/ProjectBar';
@@ -30,6 +31,7 @@ function App() {
     <div className="h-screen w-full bg-zinc-950 text-zinc-200 font-sans flex flex-col overflow-hidden selection:bg-zinc-800">
       <TopBar />
       <ProjectBar />
+      <ReaperConnection />
       <Workspace />
       <ImportAudioDialog />
       <HumToSparkDialog />

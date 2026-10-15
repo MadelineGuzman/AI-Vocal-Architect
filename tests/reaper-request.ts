@@ -1,0 +1,76 @@
+import assert from 'node:assert/strict';
+import express from 'express';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { createAnalyzeHandler, readPendingRequest, writeAnalyzeRequest, PENDING_REQUEST_MS } from '../server/reaperRequest';
+import { localRequestOnly } from '../server/reaper';
+
+const folder = await mkdtemp(path.join(os.tmpdir(), 'cadenzai-request-test-'));
+const requestFile = path.join(folder, 'request.json');
+try {
+  // --- request-file module round trip and validation ---
+  assert.equal(await readPendingRequest(requestFile), null, 'missing request reads as none');
+  await writeAnalyzeRequest('abc-123', 5000, requestFile);
+  const pending = await readPendingRequest(requestFile);
+  assert.equal(pending?.requestId, 'abc-123');
+  assert.equal(pending?.requestedAt, 5000);
+  await writeFile(requestFile, JSON.stringify({ version: 1, kind: 'other', requestId: 'x', requestedAt: 1 }));
+  assert.equal(await readPendingRequest(requestFile), null, 'only the analyze-selection command is accepted');
+  await writeFile(requestFile, JSON.stringify({ version: 1, kind: 'analyze-selection', requestId: 'bad id!', requestedAt: 1 }));
+  assert.equal(await readPendingRequest(requestFile), null, 'malformed id charset is rejected');
+  await writeFile(requestFile, 'x'.repeat(5000));
+  assert.equal(await readPendingRequest(requestFile), null, 'oversize request is rejected');
+  await assert.rejects(() => writeAnalyzeRequest('bad id!', 1, requestFile), 'the server never writes a malformed id');
+  await rm(requestFile, { force: true });
+
+  // --- POST /api/reaper/analyze via a real HTTP boundary ---
+  let connectionStatus = 'connected';
+  let levelsStatus: string | null = null;
+  let clock = 100000;
+  const app = express();
+  let port = 0;
+  app.use((req, res, next) => localRequestOnly(port)(req, res, next));
+  app.post('/api/reaper/analyze', createAnalyzeHandler({
+    readConnection: async () => ({ status: connectionStatus }),
+    readLevels: async () => ({ levels: levelsStatus ? { status: levelsStatus } : null }),
+    requestFile,
+    now: () => clock,
+  }));
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise<void>(resolve => server.once('listening', resolve));
+  port = (server.address() as { port: number }).port;
+  const url = 'http://127.0.0.1:' + port + '/api/reaper/analyze';
+  const host = '127.0.0.1:' + port;
+  const post = (headers: Record<string, string> = {}) =>
+    fetch(url, { method: 'POST', headers: { Host: host, Origin: 'http://' + host, ...headers } });
+  try {
+    connectionStatus = 'disconnected';
+    assert.equal((await post()).status, 409, 'rejects when REAPER is not connected');
+
+    connectionStatus = 'connected';
+    const first = await post();
+    assert.equal(first.status, 200, 'accepts when connected and idle');
+    const body = await first.json() as { requestId: string };
+    assert.match(body.requestId, /^[A-Za-z0-9-]+$/);
+    assert.equal((await readPendingRequest(requestFile))?.requestId, body.requestId, 'request file is written');
+
+    assert.equal((await post()).status, 409, 'rejects a duplicate while a request is pending');
+
+    clock += PENDING_REQUEST_MS + 1;
+    assert.equal((await post()).status, 200, 'a stale pending request no longer blocks a new one');
+
+    await rm(requestFile, { force: true });
+    clock += PENDING_REQUEST_MS + 1;
+    levelsStatus = 'running';
+    assert.equal((await post()).status, 409, 'rejects while an analysis is already running');
+    levelsStatus = null;
+
+    assert.equal((await post({ Origin: 'https://untrusted.example' })).status, 403, 'rejects cross-origin requests');
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+  console.log('REAPER analyze request channel: module round-trip, concurrency/pending guards, stale expiry and origin rejection tests passed.');
+} finally {
+  await rm(folder, { recursive: true, force: true });
+}

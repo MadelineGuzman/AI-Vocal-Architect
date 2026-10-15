@@ -74,3 +74,7 @@ The React rebuild is the development baseline, not yet a feature-complete replac
 Owner authentication is restored for the Cloudflare Worker only. The Express server does not implement that owner login boundary, and its static build includes files copied from `public/`; it must not be treated as a secured production deployment. Hosting, API access controls, environment loading, and exclusion/protection of private assets need an explicit release pass.
 
 Browser-local projects and recordings, provider secrets, and hosting settings are not backed up by Git. The two application versions use different localStorage metadata keys, even though their Spark audio database name/store match. Migration is explicit and opt-in via "Import earlier projects" (metadata only; audio is reattached by the user) — it never runs automatically and never modifies the original keys.
+
+## REAPER integration (read-only milestone)
+
+The local app now includes a REAPER selection panel. See [setup, boundaries and verification](docs/reaper-integration.md). Start the Lua action inside REAPER to publish project and selected-track metadata; no audio is transferred or modified. The local server now listens only on 127.0.0.1.

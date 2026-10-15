@@ -7,10 +7,12 @@
     "dev": "tsx server.ts",
     "build": "tsc && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
-    "test": "node tests/release-smoke.mjs && node tests/melody-analysis.mjs && node tests/owner-auth.mjs && tsx tests/project-workflow.ts",
+    "test": "node tests/release-smoke.mjs && node tests/melody-analysis.mjs && node tests/owner-auth.mjs && tsx tests/project-workflow.ts && npm run test:reaper && npm run test:levels",
     "typecheck": "tsc --noEmit --incremental false",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:reaper": "tsx tests/reaper-bridge.ts && tsx tests/reaper-request.ts",
+    "test:levels": "tsx tests/reaper-levels.ts"
   },
   "dependencies": {
     "@google/genai": "^2.20.0",
