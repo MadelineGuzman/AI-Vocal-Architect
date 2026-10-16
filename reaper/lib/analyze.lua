@@ -74,7 +74,7 @@ function M.run(opts)
     if source_type == 'SECTION' then error('Section/reversed sources are not supported in this first level check.') end
     local rate = reaper.GetMediaSourceSampleRate(source)
     local channels = reaper.GetMediaSourceNumChannels(source)
-    if rate <= 0 or channels <= 0 then error('REAPER cannot read this recording right now. It may be offline or unavailable. Return to REAPER and check whether the waveform comes back. If it still says OFFLINE, locate or reconnect the original audio file, then run the level check again.') end
+    if rate <= 0 or channels <= 0 then error('REAPER could not read this recording because it is set to offline. Usually this just means REAPER put the audio to sleep while it was in the background - your file is fine. In REAPER, turn off Preferences > Media > "Set media items offline when application is not active" (or run Options > Set all media online), then click Analyze again. If REAPER still shows no waveform after that, the original audio file may need to be relocated.') end
     if rate < 8000 or rate > 192000 or rate ~= math.floor(rate) or (channels ~= 1 and channels ~= 2) then error('Use mono or stereo audio at a sample rate between 8 and 192 kHz.') end
     local selection_start, selection_end = reaper.GetSet_LoopTimeRange2(project, false, false, 0, 0, false)
     if selection_end <= selection_start then error('Drag a time selection in REAPER over the section you want to measure.') end
