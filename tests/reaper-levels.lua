@@ -97,7 +97,12 @@ end
 local output,messages,releases,reads=run()
 assert(#messages==0 and releases==1);near(reads[1],0.25)
 assert(output:find('"status":"ready"',1,true));print(output)
-for _,options in ipairs({{noItem=true},{midi=true},{empty=true},{reverse=true},{offline=true}}) do
+-- With no time selection, the whole item (position 10, length 2) is measured.
+local whole,wmsgs,wrel,wreads=run({empty=true})
+assert(#wmsgs==0 and wrel==1 and whole:find('"status":"ready"',1,true),'empty selection measures the whole item')
+assert(whole:find('"startSeconds":10,',1,true) and whole:find('"endSeconds":12,',1,true),'whole-item range spans the full item')
+near(wreads[1],0)
+for _,options in ipairs({{noItem=true},{midi=true},{reverse=true},{offline=true}}) do
   local notice,errs=run(options);assert(#errs==0 and notice:find('"kind":"notice"',1,true))
   assert(not notice:find('.lua:',1,true))
   if options.offline then assert(notice:find('offline',1,true)) end

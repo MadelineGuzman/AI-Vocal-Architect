@@ -16,7 +16,7 @@ assert.throws(()=>validateLevelReport({...report,metrics:{...report.metrics,rmsD
 assert.throws(()=>validateLevelReport({...report,metrics:{...report.metrics,sampleCount:-1}},1000000));
 assert.throws(()=>validateLevelReport({...report,progress:0.5},1000000));
 assert.throws(()=>validateLevelReport({...report,updatedAt:1006000},1000000));
-assert.throws(()=>validateLevelReport({...report,endSeconds:500},1000000));
+assert.throws(()=>validateLevelReport({...report,endSeconds:1000},1000000));
 assert.equal('privatePath' in validateLevelReport({...report,privatePath:'secret'},1000000),false);
 const folder=await mkdtemp(path.join(os.tmpdir(),'cadenzai-levels-test-'));
 const file=path.join(folder,'levels.json');

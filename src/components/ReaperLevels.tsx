@@ -8,10 +8,10 @@ const format = (value: number | undefined, unit: string) => value === undefined 
 function selectionHint(state: ReaperState): string {
   if (state.status !== 'connected') return 'Connect the REAPER bridge to analyze a selection.';
   const tracks = state.snapshot?.tracks ?? [];
-  if (tracks.length === 0) return 'In REAPER, select one audio item and its track, then drag a time selection over the section to measure.';
+  if (tracks.length === 0) return 'In REAPER, select one audio item and its track, then click Analyze. The whole item is measured unless you drag a time selection over part of it.';
   if (tracks.length > 1) return 'Select exactly one track in REAPER to analyze.';
   if (tracks[0].isMaster) return 'Select a recording track in REAPER, not the master.';
-  return `Ready to measure “${tracks[0].name || 'Unnamed track'}”. Also select one audio item on it and drag a time selection.`;
+  return `Ready to measure “${tracks[0].name || 'Unnamed track'}”. Select one audio item on it — the whole item is measured unless you drag a time selection over part of it.`;
 }
 
 function StatusLine({ analyze }: { analyze: AnalyzeView }) {
@@ -58,7 +58,7 @@ export function ReaperLevels({ state, analyze }: { state: ReaperState; analyze: 
         </button>
       </div>
       <StatusLine analyze={analyze} />
-      <p className="mt-3 text-zinc-500">Measures whatever is selected in REAPER the moment you click. Read-only · selected take before effects · no gain changes · samples stay in REAPER. You no longer need to run a second REAPER script.</p>
+      <p className="mt-3 text-zinc-500">Measures the selected item the moment you click — the whole item, or just a time selection if you drag one (up to 15 minutes). Read-only · selected take before effects · no gain changes · samples stay in REAPER. You no longer need to run a second REAPER script.</p>
     </div>
 
     {state.levelsNotice && <section role="status" className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-5">

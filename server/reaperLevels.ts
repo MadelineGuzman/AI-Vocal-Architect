@@ -14,12 +14,12 @@ export function validateLevelReport(x: unknown, now=Date.now()): LevelReport {
     !text(x.projectId,128) || !x.projectId || !integer(x.projectRevision,0,Number.MAX_SAFE_INTEGER) ||
     !text(x.trackId,128) || !x.trackId || !text(x.trackName) || !text(x.takeId,128) || !x.takeId || !text(x.takeName) ||
     x.signal !== 'take-pre-fx' || !integer(x.sampleRate,8000,192000) || !integer(x.channels,1,2) ||
-    !finite(x.startSeconds,-1e9,1e9) || !finite(x.endSeconds,x.startSeconds+1/x.sampleRate,x.startSeconds+120.001) ||
+    !finite(x.startSeconds,-1e9,1e9) || !finite(x.endSeconds,x.startSeconds+1/x.sampleRate,x.startSeconds+900.001) ||
     !finite(x.progress,0,1) || (x.requestId !== undefined && !requestId(x.requestId))) throw new Error('Invalid level report');
   let metrics: LevelMetrics | undefined;
   if (x.status === 'ready') {
     const m=x.metrics;
-    if (!object(m) || !integer(m.activeWindows,0,301) || !integer(m.sampleCount,1,46080000) ||
+    if (!object(m) || !integer(m.activeWindows,0,2251) || !integer(m.sampleCount,1,345600000) ||
       !integer(m.samplesAtFullScale,0,m.sampleCount) || typeof m.silent !== 'boolean' || x.progress !== 1) throw new Error('Invalid metrics');
     for (const key of ['samplePeakDbfs','rmsDbfs','crestDb','activeVariationDb']) {
       if (m[key] !== undefined && !finite(m[key], key.endsWith('Dbfs') ? -10000 : 0, 10000)) throw new Error('Invalid metric');

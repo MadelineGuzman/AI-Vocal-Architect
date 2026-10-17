@@ -77,7 +77,7 @@ function M.run(opts)
     if rate <= 0 or channels <= 0 then error('REAPER could not read this recording because it is set to offline. Usually this just means REAPER put the audio to sleep while it was in the background - your file is fine. In REAPER, turn off Preferences > Media > "Set media items offline when application is not active" (or run Options > Set all media online), then click Analyze again. If REAPER still shows no waveform after that, the original audio file may need to be relocated.') end
     if rate < 8000 or rate > 192000 or rate ~= math.floor(rate) or (channels ~= 1 and channels ~= 2) then error('Use mono or stereo audio at a sample rate between 8 and 192 kHz.') end
     local selection_start, selection_end = reaper.GetSet_LoopTimeRange2(project, false, false, 0, 0, false)
-    if selection_end <= selection_start then error('Drag a time selection in REAPER over the section you want to measure.') end
+    local has_selection = selection_end > selection_start
     local position = reaper.GetMediaItemInfo_Value(item, 'D_POSITION')
     local length = reaper.GetMediaItemInfo_Value(item, 'D_LENGTH')
     local source_length, is_beats = reaper.GetMediaSourceLength(source)
@@ -85,10 +85,11 @@ function M.run(opts)
     if is_beats or offset < 0 or (reaper.GetMediaItemInfo_Value(item, 'B_LOOPSRC') ~= 0 and offset + length > source_length + 1 / rate) then
       error('Repeated loops or negative source offsets are not supported in this first level check.')
     end
-    local start_time = math.max(selection_start, position)
-    local end_time = math.min(selection_end, position + length)
-    if end_time <= start_time then error('The time selection does not overlap the selected recording.') end
-    if end_time - start_time > 120 then error('Choose a section of two minutes or less for this first level check.') end
+    -- With no time selection, measure the whole item; with one, measure the overlap.
+    local start_time = has_selection and math.max(selection_start, position) or position
+    local end_time = has_selection and math.min(selection_end, position + length) or (position + length)
+    if end_time <= start_time then error('The time selection does not overlap the selected recording. Clear it to measure the whole item, or drag it over the recording.') end
+    if end_time - start_time > 900 then error('This recording is longer than 15 minutes. Drag a time selection over the part you want to measure (up to 15 minutes).') end
     accessor = reaper.CreateTakeAudioAccessor(take)
     if not accessor then error('REAPER could not create a read-only audio accessor.') end
     local accessor_start = reaper.GetAudioAccessorStartTime(accessor)
