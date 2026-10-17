@@ -9,6 +9,7 @@ local callbacks = {}
 local clock = 10
 os.getenv = function(key) assert(key == 'LOCALAPPDATA'); return '/test-only' end
 os.time = function() return 1000 end
+os.execute = function() return true end  -- do not actually launch the app in tests
 os.remove = function(file) assert(file == '/test-only/Cadenzai/reaper-bridge/request.json'); removed = true; return true end
 io.open = function(file, mode)
   if mode == 'rb' then

@@ -7,6 +7,7 @@ local payload, callback, guid = nil, nil, 0
 local real_print = print
 os.getenv = function(key) assert(key == 'LOCALAPPDATA'); return '/test-only' end
 os.time = function() return 1000 + math.floor(now) end
+os.execute = function() return true end  -- do not actually launch the app in tests
 io.open = function(file, mode)
   -- No analysis request or cursor move present in this read-only selection scenario.
   if mode == 'rb' then assert(file == '/test-only/Cadenzai/reaper-bridge/request.json' or file == '/test-only/Cadenzai/reaper-bridge/cursor.json'); return nil end

@@ -29,7 +29,9 @@ For the built server, set `NODE_ENV=production` in the process environment befor
 
 ### Launch as its own window (one-click)
 
-Double-click **`Launch Cadenzai.cmd`** in the repo root to open Cadenzai in its own chromeless window, ready to sit beside REAPER. It starts the local server if it is not already running (reusing one if it is), waits for it, then opens the app in a Chromium app window (Chrome or Edge; falls back to the default browser). Close the minimized **"Cadenzai Server"** window to stop it. Run `scripts/launch/Create-Desktop-Shortcut.ps1` once to put a **Cadenzai** shortcut on the desktop. This is a local launcher, not a packaged desktop app; the REAPER selection bridge is still started separately from REAPER's Actions list.
+Double-click **`Launch Cadenzai.cmd`** in the repo root to open Cadenzai in its own chromeless window, ready to sit beside REAPER. It starts the local server if it is not already running (reusing one if it is), waits for it, then opens the app in a Chromium app window (Chrome or Edge; falls back to the default browser). If a Cadenzai window is already open it simply brings that window to the front instead of opening a duplicate — so the launcher (or the desktop shortcut) doubles as a reliable "show my Cadenzai window" button. Close the minimized **"Cadenzai Server"** window to stop it. Run `scripts/launch/Create-Desktop-Shortcut.ps1` once to put a **Cadenzai** shortcut on the desktop.
+
+Running the REAPER selection bridge from REAPER's Actions list also opens (or focuses) this window automatically, so starting the bridge is the only step needed to get both halves running. This is a local launcher, not yet a packaged desktop app.
 
 ## Project persistence and legacy migration
 

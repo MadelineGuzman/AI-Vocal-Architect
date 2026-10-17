@@ -138,4 +138,13 @@ local function tick()
   end
   reaper.defer(tick)
 end
+
+-- Open (or focus) the Cadenzai window so running this script is the only step.
+-- The launcher starts the local server if needed and brings an existing window
+-- to the front instead of opening a duplicate.
+pcall(function()
+  local launcher = (script_dir .. '../scripts/launch/cadenzai-launcher.ps1'):gsub('/', '\\')
+  os.execute('start "" powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' .. launcher .. '"')
+end)
+
 tick()
