@@ -33,7 +33,7 @@ for first=0,15999,137 do
   engine.add(withEnvelope,samples,n)
 end
 local enveloped=engine.finish(withEnvelope)
-assert(type(enveloped.envelope)=='table' and #enveloped.envelope>0 and #enveloped.envelope<=240,'bounded envelope produced')
+assert(type(enveloped.envelope)=='table' and #enveloped.envelope>0 and #enveloped.envelope<=480,'bounded envelope produced')
 assert(enveloped.envelope[1]<0,'envelope values are in dBFS')
 assert(signal(1,function(i) return 0.5*math.sin(2*math.pi*1000*i/8000) end).envelope==nil,'no envelope without total frames')
 assert(not pcall(function() engine.add(engine.new(8000,1),{0/0},1) end))

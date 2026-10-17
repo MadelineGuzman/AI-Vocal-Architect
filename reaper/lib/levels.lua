@@ -3,11 +3,11 @@ local M = {}
 local function db(amplitude) if amplitude <= 0 then return nil end return 20 * math.log(amplitude, 10) end
 function M.new(rate, channels, totalFrames)
   assert(rate > 0 and (channels == 1 or channels == 2))
-  -- Optional downsampled peak-over-time envelope (for the loudness strip),
-  -- bounded to at most 240 bins regardless of recording length.
+  -- Optional downsampled peak-over-time envelope (for the loudness waveform),
+  -- bounded to at most 480 bins regardless of recording length.
   local binCount, bins = 0, {}
   if totalFrames and totalFrames > 0 then
-    binCount = math.max(1, math.min(240, math.floor(totalFrames)))
+    binCount = math.max(1, math.min(480, math.floor(totalFrames)))
     for i = 1, binCount do bins[i] = 0 end
   end
   return { rate=rate, channels=channels, peak=0, sum=0, count=0, atFullScale=0,

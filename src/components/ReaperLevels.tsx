@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Activity, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { ReaperState, LevelMetrics } from '../types/reaper';
 import type { AnalyzeView } from './ReaperConnection';
@@ -81,26 +82,48 @@ function loudnessColor(db: number): string {
   return '#1e3a8a';                 // deep blue — near silence
 }
 
-function LoudnessStrip({ envelope, startSeconds, endSeconds }: { envelope: number[]; startSeconds: number; endSeconds: number }) {
-  const span = Math.max(0, endSeconds - startSeconds);
+function levelWord(db: number): string {
+  if (db >= -1) return 'near clipping';
+  if (db >= -4) return 'very hot';
+  if (db >= -9) return 'hot';
+  if (db >= -18) return 'healthy';
+  if (db >= -30) return 'quiet';
+  return 'very quiet';
+}
+
+function LoudnessWaveform({ envelope, startSeconds, endSeconds }: { envelope: number[]; startSeconds: number; endSeconds: number }) {
+  const [selected, setSelected] = useState<number | null>(null);
   const n = envelope.length;
+  const span = Math.max(0, endSeconds - startSeconds);
+  const W = 1000, H = 120, mid = H / 2;
+  const barW = W / n;
+  const amp = (db: number) => Math.min(1, Math.pow(10, db / 20)); // dBFS -> linear height
+  const timeOf = (i: number) => startSeconds + ((i + 0.5) / n) * span;
   return (
     <div>
-      <div className="flex h-16 w-full overflow-hidden rounded-lg border border-zinc-800" role="img" aria-label="Loudness over time, coloured from blue (quiet) to red (near clipping)">
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-28 w-full rounded-lg border border-zinc-800 bg-zinc-950" role="img" aria-label="Loudness waveform: taller and redder where louder, coloured blue (quiet) to red (near clipping)">
+        <line x1={0} y1={mid} x2={W} y2={mid} stroke="#3f3f46" strokeWidth={0.5} />
         {envelope.map((db, i) => {
-          const t = startSeconds + ((i + 0.5) / n) * span;
-          return <div key={i} className="h-full flex-1" style={{ backgroundColor: loudnessColor(db) }} title={`${t.toFixed(1)}s · ${db.toFixed(1)} dBFS`} />;
+          const h = Math.max(0.6, amp(db) * (mid - 2));
+          return <rect key={i} x={i * barW} y={mid - h} width={Math.max(barW, 0.8)} height={h * 2}
+            fill={loudnessColor(db)} opacity={selected === null || selected === i ? 1 : 0.5}
+            style={{ cursor: 'pointer' }} onClick={() => setSelected(i === selected ? null : i)}>
+            <title>{`${timeOf(i).toFixed(1)}s · ${db.toFixed(1)} dBFS`}</title>
+          </rect>;
         })}
-      </div>
+        {selected !== null && <line x1={selected * barW + barW / 2} y1={0} x2={selected * barW + barW / 2} y2={H} stroke="#ffffff" strokeWidth={1} opacity={0.75} />}
+      </svg>
       <div className="relative mt-1 h-3 text-[10px] text-zinc-500">
         <span className="absolute left-0">{startSeconds.toFixed(1)}s</span>
         <span className="absolute right-0">{endSeconds.toFixed(1)}s</span>
       </div>
+      {selected !== null
+        ? <p className="mt-2 text-xs"><span className="font-medium text-zinc-200">At {timeOf(selected).toFixed(1)}s</span> · <span style={{ color: loudnessColor(envelope[selected]) }}>{envelope[selected].toFixed(1)} dBFS — {levelWord(envelope[selected])}</span><span className="text-zinc-500"> · go to this time in REAPER to hear it.</span></p>
+        : <p className="mt-2 text-[11px] text-zinc-500">Your take's loudness shape — taller and redder means louder. Click any spot to read its exact time and level.</p>}
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-500">
         {([['#3b82f6', 'quiet'], ['#84cc16', 'healthy'], ['#f59e0b', 'hot'], ['#ef4444', 'near clip']] as const).map(([c, label]) =>
           <span key={label} className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: c }} /> {label}</span>)}
       </div>
-      <p className="mt-2 text-[11px] text-zinc-500">Each slice is a moment of the take, coloured by its loudest peak — red is near clipping, blue is quiet. Hover a slice for its time and level.</p>
     </div>
   );
 }
@@ -120,7 +143,7 @@ function Results({ report, metrics, current }: { report: NonNullable<ReaperState
           : <div className="flex items-center gap-2 rounded-lg border border-green-500/25 bg-green-500/10 px-3 py-2.5 text-sm text-green-300"><CheckCircle2 size={16} /> No samples reached 0 dBFS — you have headroom.</div>}
 
         {metrics.envelope && metrics.envelope.length > 1
-          ? <LoudnessStrip envelope={metrics.envelope} startSeconds={report.startSeconds} endSeconds={report.endSeconds} />
+          ? <LoudnessWaveform envelope={metrics.envelope} startSeconds={report.startSeconds} endSeconds={report.endSeconds} />
           : <LevelMeter peak={metrics.samplePeakDbfs!} rms={metrics.rmsDbfs!} />}
 
         {/* the numbers, in boxes */}

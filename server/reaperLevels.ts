@@ -29,7 +29,7 @@ export function validateLevelReport(x: unknown, now=Date.now()): LevelReport {
     if (m.activeWindows < 2 && m.activeVariationDb !== undefined) throw new Error('Insufficient active windows');
     let envelope: number[] | undefined;
     if (m.envelope !== undefined) {
-      if (!Array.isArray(m.envelope) || m.envelope.length > 300 ||
+      if (!Array.isArray(m.envelope) || m.envelope.length > 600 ||
           !m.envelope.every(v => typeof v === 'number' && Number.isFinite(v) && v >= -200 && v <= 20)) throw new Error('Invalid envelope');
       envelope = m.envelope as number[];
     }
