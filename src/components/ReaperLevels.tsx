@@ -1,5 +1,5 @@
 import { Activity, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
-import type { ReaperState } from '../types/reaper';
+import type { ReaperState, LevelMetrics } from '../types/reaper';
 import type { AnalyzeView } from './ReaperConnection';
 
 const format = (value: number | undefined, unit: string) => value === undefined ? '—' : value.toFixed(1) + ' ' + unit;
@@ -32,11 +32,90 @@ function StatusLine({ analyze }: { analyze: AnalyzeView }) {
   return <p className={base + ' text-amber-300'} role="alert"><AlertTriangle size={14} /> {message}</p>;
 }
 
+// --- Level meter: shows average level (filled) and the loudest peak (marker) on
+// a -42..0 dBFS scale, with 0 (clip) and the -6 reference marked. Honest guide,
+// not a verdict: colour only hints at how much headroom is left.
+const METER_MIN_DB = -42;
+const meterPct = (db: number) => Math.max(0, Math.min(100, ((db - METER_MIN_DB) / (0 - METER_MIN_DB)) * 100));
+const peakZone = (db: number): 'hot' | 'warm' | 'good' => db >= -1 ? 'hot' : db >= -6 ? 'warm' : 'good';
+const ZONE_COLOR: Record<'hot' | 'warm' | 'good', string> = { hot: '#f87171', warm: '#fbbf24', good: '#2dd4bf' };
+const ZONE_LABEL: Record<'hot' | 'warm' | 'good', string> = { hot: 'very little headroom', warm: 'getting hot', good: 'comfortable headroom' };
+
+function LevelMeter({ peak, rms }: { peak: number; rms: number }) {
+  const zone = peakZone(peak);
+  return (
+    <div>
+      <div className="relative h-8 w-full overflow-hidden rounded-md bg-zinc-800" role="img" aria-label={`Peak ${peak.toFixed(1)} dBFS, average ${rms.toFixed(1)} dBFS, on a -42 to 0 dBFS scale`}>
+        {/* hot zone shading near 0 dBFS */}
+        <div className="absolute inset-y-0 right-0" style={{ width: (100 - meterPct(-6)) + '%', background: 'linear-gradient(to right, transparent, rgba(248,113,113,0.22))' }} />
+        {/* average level fill */}
+        <div className="absolute inset-y-0 left-0 bg-cyan-500/30" style={{ width: meterPct(rms) + '%' }} />
+        {/* -6 dBFS reference tick */}
+        <div className="absolute inset-y-0 w-px bg-zinc-500/80" style={{ left: meterPct(-6) + '%' }} />
+        {/* peak marker */}
+        <div className="absolute inset-y-0 w-[3px] rounded" style={{ left: `calc(${meterPct(peak)}% - 1.5px)`, background: ZONE_COLOR[zone] }} />
+      </div>
+      <div className="relative mt-1 h-3 text-[10px] text-zinc-500">
+        <span className="absolute left-0">−42</span>
+        <span className="absolute -translate-x-1/2" style={{ left: meterPct(-6) + '%' }}>−6 ref</span>
+        <span className="absolute right-0 font-medium text-red-400">0 · clip</span>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px]">
+        <span className="flex items-center gap-1.5" style={{ color: ZONE_COLOR[zone] }}><span className="inline-block h-2.5 w-[3px] rounded" style={{ background: ZONE_COLOR[zone] }} /> Peak {peak.toFixed(1)} dBFS · {ZONE_LABEL[zone]}</span>
+        <span className="flex items-center gap-1.5 text-cyan-300"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-cyan-500/40" /> Average {rms.toFixed(1)} dBFS</span>
+      </div>
+      <p className="mt-2 text-[11px] text-zinc-500">The filled bar is your average level; the line is your loudest peak. Closer to 0 means less headroom — −6 is your personal reference, not a target.</p>
+    </div>
+  );
+}
+
+function Results({ report, metrics, current }: { report: NonNullable<ReaperState['levels']>; metrics: LevelMetrics; current: boolean }) {
+  return (
+    <div className="mt-3 max-h-80 overflow-y-auto space-y-4">
+      <p className="text-zinc-300">{report.trackName} / {report.takeName || 'Unnamed take'} · {report.startSeconds.toFixed(2)}–{report.endSeconds.toFixed(2)} s · {report.channels === 1 ? 'Mono' : 'Stereo'}</p>
+      {!current && <p className="text-amber-300">Historical result. The connection, project, track selection, or project revision no longer matches. Rerun for a current measurement.</p>}
+
+      {metrics.silent ? (
+        <p className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 text-zinc-300">Silence — there was no measurable level in this selection.</p>
+      ) : <>
+        {/* at-a-glance verdict */}
+        {metrics.samplesAtFullScale > 0
+          ? <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-300"><AlertTriangle size={16} /> {metrics.samplesAtFullScale} sample{metrics.samplesAtFullScale === 1 ? '' : 's'} reached 0 dBFS — check this part for overload.</div>
+          : <div className="flex items-center gap-2 rounded-lg border border-green-500/25 bg-green-500/10 px-3 py-2.5 text-sm text-green-300"><CheckCircle2 size={16} /> No samples reached 0 dBFS — you have headroom.</div>}
+
+        <LevelMeter peak={metrics.samplePeakDbfs!} rms={metrics.rmsDbfs!} />
+
+        {/* the numbers, in boxes */}
+        <dl className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            ['Sample peak', format(metrics.samplePeakDbfs, 'dBFS'), ZONE_COLOR[peakZone(metrics.samplePeakDbfs!)]],
+            ['Average RMS', format(metrics.rmsDbfs, 'dBFS'), undefined],
+            ['Peak above average', format(metrics.crestDb, 'dB'), undefined],
+            ['Active level variation', format(metrics.activeVariationDb, 'dB'), undefined],
+          ].map(([label, value, color]) => <div key={label as string} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3"><dt className="text-zinc-400">{label}</dt><dd className="mt-1 text-base font-semibold" style={{ color: (color as string) || '#67e8f9' }}>{value}</dd></div>)}
+        </dl>
+
+        {/* fine print, hidden by default */}
+        <details className="text-[11px] text-zinc-500">
+          <summary className="cursor-pointer select-none py-1 text-xs text-zinc-400 hover:text-zinc-200">What these numbers mean</summary>
+          <div className="mt-2 space-y-2 border-l border-zinc-800 pl-3">
+            <p>No measured channel samples reaching 0 dBFS does not rule out intersample peaks or earlier clipping.</p>
+            <p>RMS is unweighted average energy, not LUFS. “Peak above average” (crest) is how far your loudest peak sits above the average — a rough sense of how punchy vs. squashed it is.</p>
+            <p>Active level variation is the 90th–10th percentile spread of complete 400 ms RMS windows above −60 dBFS; fewer than two active windows gives no estimate. This is one take, not the track mix or master output.</p>
+            <p>A −6 dBFS peak can be a personal headroom reference, not a loudness requirement. Compare in context before changing gain; expressive level changes may be intentional.</p>
+            <p>Measured {new Date(report.updatedAt).toLocaleString()} · {report.sampleRate.toLocaleString()} Hz · sample peak, not true peak.</p>
+          </div>
+        </details>
+      </>}
+    </div>
+  );
+}
+
 export function ReaperLevels({ state, analyze }: { state: ReaperState; analyze: AnalyzeView }) {
   const report = state.levels;
   const sameProject = report && state.snapshot?.project.sessionId === report.projectId;
   const sameTrack = report && state.snapshot?.tracks.length === 1 && state.snapshot.tracks[0].id === report.trackId;
-  const current = state.status === 'connected' && sameProject && sameTrack && state.snapshot?.revision === report?.projectRevision;
+  const current = Boolean(state.status === 'connected' && sameProject && sameTrack && state.snapshot?.revision === report?.projectRevision);
   const metrics = report?.metrics;
   return <details className="mt-3 border-t border-zinc-800 pt-2 text-xs text-zinc-400" open={Boolean(report || state.levelsNotice || analyze.phase !== 'idle')}>
     <summary className="cursor-pointer py-1 font-medium text-zinc-200">Recording level check{report ? ' · ' + (current ? report.status : 'previous snapshot') : ''}</summary>
@@ -58,7 +137,7 @@ export function ReaperLevels({ state, analyze }: { state: ReaperState; analyze: 
         </button>
       </div>
       <StatusLine analyze={analyze} />
-      <p className="mt-3 text-zinc-500">Measures the selected item the moment you click — the whole item, or just a time selection if you drag one (up to 15 minutes). Read-only · selected take before effects · no gain changes · samples stay in REAPER. You no longer need to run a second REAPER script.</p>
+      <p className="mt-3 text-[11px] text-zinc-500">Read-only · measures the selected take before effects · no gain changes · samples stay in REAPER.</p>
     </div>
 
     {state.levelsNotice && <section role="status" className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-5">
@@ -68,23 +147,10 @@ export function ReaperLevels({ state, analyze }: { state: ReaperState; analyze: 
       <p className="mt-3 text-xs text-zinc-500">Your audio is unchanged. Check attempted {new Date(state.levelsNotice.updatedAt).toLocaleString()}.</p>
     </section>}
     {state.levelsError && <p role="alert" className="mt-2 text-amber-300">{state.levelsError}</p>}
-    {report && <div className="mt-3 max-h-64 overflow-y-auto space-y-3">
-      <p className="text-zinc-300">{report.trackName} / {report.takeName || 'Unnamed take'} · {report.startSeconds.toFixed(2)}–{report.endSeconds.toFixed(2)} s · {report.channels === 1 ? 'Mono' : 'Stereo'}</p>
-      {!current && <p className="text-amber-300">Historical result. The connection, project, track selection, or project revision no longer matches. Rerun for a current measurement.</p>}
-      {report.status === 'running' ? <div role="status">Measuring… {Math.round(report.progress * 100)}%</div> : report.status === 'error' ? <p role="alert" className="text-amber-300">{report.message}</p> : metrics && <>
-        <dl className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            ['Sample peak', metrics.silent ? 'Silence (−∞)' : format(metrics.samplePeakDbfs, 'dBFS')],
-            ['Average RMS', metrics.silent ? 'Silence (−∞)' : format(metrics.rmsDbfs, 'dBFS')],
-            ['Peak above average', format(metrics.crestDb, 'dB')],
-            ['Active level variation', format(metrics.activeVariationDb, 'dB')],
-          ].map(([label, value]) => <div key={label} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3"><dt>{label}</dt><dd className="mt-1 text-base font-semibold text-cyan-300">{value}</dd></div>)}
-        </dl>
-        <p>{metrics.samplesAtFullScale > 0 ? metrics.samplesAtFullScale + ' channel samples reached or exceeded 0 dBFS. Inspect the recording for overload; this alone does not prove audible clipping.' : 'No measured channel samples reached 0 dBFS. This does not rule out intersample peaks or earlier clipping.'}</p>
-        <p className="text-zinc-500">RMS is unweighted average energy, not LUFS. Variation is the 90th–10th percentile spread of complete 400 ms RMS windows above −60 dBFS; fewer than two active windows gives no estimate. This is one take, not the track mix or master output.</p>
-        <p className="text-zinc-400">A −6 dBFS peak can be a personal headroom reference, not a loudness requirement. Compare in context before changing gain; expressive level changes may be intentional.</p>
-        <p className="text-zinc-500">Measured {new Date(report.updatedAt).toLocaleString()} · {report.sampleRate.toLocaleString()} Hz · sample peak, not true peak</p>
-      </>}
-    </div>}
+    {report && (report.status === 'running'
+      ? <div className="mt-3" role="status">Measuring… {Math.round(report.progress * 100)}%</div>
+      : report.status === 'error'
+        ? <p role="alert" className="mt-3 text-amber-300">{report.message}</p>
+        : metrics && <Results report={report} metrics={metrics} current={current} />)}
   </details>;
 }
