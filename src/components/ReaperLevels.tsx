@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type MouseEvent, type ReactNode } from 'react';
 import { Activity, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { ReaperState, LevelMetrics } from '../types/reaper';
 import type { AnalyzeView, SpectrumEntry } from './ReaperConnection';
@@ -143,6 +143,7 @@ function LoudnessWaveform({ envelope, startSeconds, endSeconds }: { envelope: nu
 const SPECTRUM_COLORS = ['#22d3ee', '#f472b6', '#a3e635'];
 
 function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear: () => void }) {
+  const [pick, setPick] = useState<number | null>(null);
   if (!history.length) return null;
   const W = 1000, H = 150, padL = 4, padR = 4, padT = 8, padB = 14;
   const fMin = 25;
@@ -153,6 +154,9 @@ function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear
   const xOf = (f: number) => padL + (Math.log(Math.max(f, fMin)) - Math.log(fMin)) / (Math.log(fMax) - Math.log(fMin)) * (W - padL - padR);
   const yOf = (d: number) => padT + (yTop - Math.max(d, yBot)) / (yTop - yBot) * (H - padT - padB);
   const pathOf = (spec: { f: number; db: number }[]) => spec.map((p, i) => `${i ? 'L' : 'M'}${xOf(p.f).toFixed(1)} ${yOf(p.db).toFixed(1)}`).join(' ');
+  const peakOf = (spec: { f: number; db: number }[]) => spec.reduce((best, p) => p.db > best.db ? p : best, spec[0]);
+  const atFreq = (spec: { f: number; db: number }[], f: number) => spec.reduce((best, p) => Math.abs(Math.log(p.f / f)) < Math.abs(Math.log(best.f / f)) ? p : best, spec[0]);
+  const fmtF = (f: number) => f >= 1000 ? (Math.round(f / 100) / 10) + ' kHz' : Math.round(f / 5) * 5 + ' Hz';
 
   const overlaps: { x0: number; x1: number }[] = [];
   if (history.length >= 2) {
@@ -169,25 +173,51 @@ function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear
   }
   const ticks = [50, 100, 200, 500, 1000, 2000, 5000, 10000].filter(f => f >= fMin && f <= fMax);
 
+  const onPick = (e: MouseEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const t = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const lx = Math.max(0, Math.min(1, (t * W - padL) / (W - padL - padR)));
+    setPick(fMin * Math.pow(fMax / fMin, lx));
+  };
+
+  // "Which is louder here, and which should I carve?" readout for the clicked frequency.
+  let readout: ReactNode = null;
+  if (pick !== null) {
+    const rows = history.map((h, idx) => ({ track: h.track, db: atFreq(h.spectrum, pick).db, color: SPECTRUM_COLORS[idx] ?? '#a1a1aa' }))
+      .filter(r => r.db > -100).sort((x, y) => y.db - x.db);
+    if (rows.length >= 2) {
+      readout = <>
+        <span className="font-medium text-zinc-200">At {fmtF(pick)}</span> — {rows.map((r, i) => <span key={r.track}><span style={{ color: r.color }}>{r.track} {r.db.toFixed(1)} dB</span>{i < rows.length - 1 ? ', ' : ''}</span>)}.{' '}
+        <span className="text-zinc-300">{rows[0].track} is {(rows[0].db - rows[1].db).toFixed(0)} dB louder here.</span>{' '}
+        <span className="text-zinc-500">To make room for {rows[1].track}, dip {rows[0].track} around here; if {rows[0].track} should lead, leave it. Your call.</span>
+      </>;
+    } else if (rows.length === 1) {
+      readout = <><span className="font-medium text-zinc-200">At {fmtF(pick)}</span> — <span style={{ color: rows[0].color }}>{rows[0].track} {rows[0].db.toFixed(1)} dB</span>.</>;
+    } else {
+      readout = <span className="text-zinc-500">At {fmtF(pick)} — nothing significant here.</span>;
+    }
+  }
+
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
         <p className="text-xs font-medium text-zinc-300">Frequency / tone{history.length >= 2 ? ' · overlap' : ''}</p>
         {history.length >= 2 && <button onClick={onClear} className="text-[10px] text-zinc-500 hover:text-zinc-300">clear</button>}
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-36 w-full rounded-lg border border-zinc-800 bg-zinc-950" role="img" aria-label="Frequency tone curves; red bands show where two tracks overlap">
-        {overlaps.map((o, i) => <rect key={i} x={o.x0} y={padT} width={Math.max(0.5, o.x1 - o.x0)} height={H - padT - padB} fill="#ef4444" opacity={0.16} />)}
-        {ticks.map(f => <line key={f} x1={xOf(f)} y1={padT} x2={xOf(f)} y2={H - padB} stroke="#27272a" strokeWidth={0.75} />)}
-        {history.map((h, idx) => <path key={h.id} d={pathOf(h.spectrum)} fill="none" stroke={SPECTRUM_COLORS[idx] ?? '#a1a1aa'} strokeWidth={idx === 0 ? 2 : 1.5} opacity={idx === 0 ? 1 : 0.7} />)}
-      </svg>
+      <div className="relative">
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-36 w-full rounded-lg border border-zinc-800 bg-zinc-950" style={{ cursor: 'crosshair' }} onClick={onPick} role="img" aria-label="Frequency tone curves; red bands show where two tracks overlap. Click to compare levels.">
+          {overlaps.map((o, i) => <rect key={i} x={o.x0} y={padT} width={Math.max(0.5, o.x1 - o.x0)} height={H - padT - padB} fill="#ef4444" opacity={0.14} />)}
+          {ticks.map(f => <line key={f} x1={xOf(f)} y1={padT} x2={xOf(f)} y2={H - padB} stroke="#27272a" strokeWidth={0.75} />)}
+          {history.map((h, idx) => <path key={h.id} d={pathOf(h.spectrum)} fill="none" stroke={SPECTRUM_COLORS[idx] ?? '#a1a1aa'} strokeWidth={idx === 0 ? 2.5 : 1.75} opacity={idx === 0 ? 1 : 0.8} />)}
+          {pick !== null && <line x1={xOf(pick)} y1={padT} x2={xOf(pick)} y2={H - padB} stroke="#ffffff" strokeWidth={1} opacity={0.6} />}
+        </svg>
+        {/* Direct labels so it is obvious which curve is which, placed over each curve's peak. */}
+        {history.map((h, idx) => <span key={h.id} className="pointer-events-none absolute whitespace-nowrap rounded bg-zinc-950/70 px-1 text-[10px] font-semibold" style={{ left: `${xOf(peakOf(h.spectrum).f) / W * 100}%`, top: `${4 + idx * 14}px`, transform: 'translateX(-50%)', color: SPECTRUM_COLORS[idx] ?? '#a1a1aa' }}>{h.track}</span>)}
+      </div>
       <div className="relative mt-1 h-3 text-[10px] text-zinc-500">
         {ticks.map(f => <span key={f} className="absolute -translate-x-1/2" style={{ left: (xOf(f) / W * 100) + '%' }}>{f >= 1000 ? (f / 1000) + 'k' : f}</span>)}
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
-        {history.map((h, idx) => <span key={h.id} className="flex items-center gap-1.5" style={{ color: SPECTRUM_COLORS[idx] ?? '#a1a1aa' }}><span className="inline-block h-1 w-4 rounded-sm" style={{ background: SPECTRUM_COLORS[idx] ?? '#a1a1aa' }} />{h.track}</span>)}
-        {history.length < 2 && <span className="text-zinc-500">Analyze another track (e.g. the snare) to overlay it here and see where they fight.</span>}
-      </div>
-      {history.length >= 2 && <p className="mt-2 text-[11px] text-zinc-500">Red bands are where <span className="text-zinc-300">{history[0].track}</span> and <span className="text-zinc-300">{history[1].track}</span> are both loud — where they mask each other. Carve one there to make room.</p>}
+      <p className="mt-2 text-[11px] leading-relaxed">{readout ?? <span className="text-zinc-500">{history.length >= 2 ? 'Red bands are where both tracks are loud — where they mask each other. Click a spot to see which is louder and which to carve.' : 'Your track’s tone. Click any spot to read its level, then analyze another track to overlay and compare.'}</span>}</p>
     </div>
   );
 }
