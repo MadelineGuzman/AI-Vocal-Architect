@@ -17,11 +17,19 @@ export interface AnalyzeView {
   onAnalyze: () => void;
 }
 
+// A captured tone curve, kept across analyses so two tracks can be overlaid.
+export interface SpectrumEntry {
+  id: string;
+  track: string;
+  spectrum: { f: number; db: number }[];
+}
+
 export function ReaperConnection() {
   const [state, setState] = useState<ReaperState>(initial);
   const [request, setRequest] = useState<{ id: string; startedAt: number } | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [spectra, setSpectra] = useState<SpectrumEntry[]>([]);
   // Re-render on a timer so the acknowledgement timeout is evaluated even if the
   // polled state stops changing.
   const [, setClock] = useState(0);
@@ -50,6 +58,19 @@ export function ReaperConnection() {
     void poll();
     return () => { stopped = true; clearTimeout(timer); controller?.abort(); };
   }, []);
+
+  // Keep each analyzed track's tone curve (newest first, one per track, max 3)
+  // so the frequency view can overlay two tracks even across separate analyses.
+  useEffect(() => {
+    const r = state.levels;
+    if (r && r.status === 'ready' && r.metrics?.spectrum && r.metrics.spectrum.length) {
+      setSpectra(prev => {
+        if (prev[0]?.id === r.id) return prev;
+        const track = r.trackName || 'Track';
+        return [{ id: r.id, track, spectrum: r.metrics!.spectrum! }, ...prev.filter(e => e.track !== track)].slice(0, 3);
+      });
+    }
+  }, [state.levels?.id, state.levels?.status]);
 
   const onAnalyze = useCallback(async () => {
     if (sending) return;
@@ -126,7 +147,7 @@ export function ReaperConnection() {
           </div>
         </details>
       ) : <p className="mt-2 text-xs text-zinc-500">In REAPER, load and run “Cadenzai_Read_Selection.lua” from Actions. No audio is transferred.</p>}
-      <ReaperLevels state={state} analyze={analyze} />
+      <ReaperLevels state={state} analyze={analyze} spectra={spectra} onClearSpectra={() => setSpectra([])} />
     </section>
   );
 }

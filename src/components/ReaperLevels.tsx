@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Activity, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { ReaperState, LevelMetrics } from '../types/reaper';
-import type { AnalyzeView } from './ReaperConnection';
+import type { AnalyzeView, SpectrumEntry } from './ReaperConnection';
 
 const format = (value: number | undefined, unit: string) => value === undefined ? '—' : value.toFixed(1) + ' ' + unit;
 
@@ -138,7 +138,61 @@ function LoudnessWaveform({ envelope, startSeconds, endSeconds }: { envelope: nu
   );
 }
 
-function Results({ report, metrics, current }: { report: NonNullable<ReaperState['levels']>; metrics: LevelMetrics; current: boolean }) {
+// Frequency / tone view. Overlays each analyzed track's relative tone curve and
+// highlights where two tracks are both loud — the frequencies where they mask.
+const SPECTRUM_COLORS = ['#22d3ee', '#f472b6', '#a3e635'];
+
+function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear: () => void }) {
+  if (!history.length) return null;
+  const W = 1000, H = 150, padL = 4, padR = 4, padT = 8, padB = 14;
+  const fMin = 25;
+  const fMax = Math.max(...history.flatMap(h => h.spectrum.map(p => p.f)), 1000);
+  const liveDb = history.flatMap(h => h.spectrum.map(p => p.db)).filter(d => d > -119);
+  const maxDb = liveDb.length ? Math.max(...liveDb) : 0;
+  const yTop = maxDb + 3, yBot = maxDb - 66;
+  const xOf = (f: number) => padL + (Math.log(Math.max(f, fMin)) - Math.log(fMin)) / (Math.log(fMax) - Math.log(fMin)) * (W - padL - padR);
+  const yOf = (d: number) => padT + (yTop - Math.max(d, yBot)) / (yTop - yBot) * (H - padT - padB);
+  const pathOf = (spec: { f: number; db: number }[]) => spec.map((p, i) => `${i ? 'L' : 'M'}${xOf(p.f).toFixed(1)} ${yOf(p.db).toFixed(1)}`).join(' ');
+
+  const overlaps: { x0: number; x1: number }[] = [];
+  if (history.length >= 2) {
+    const a = history[0].spectrum, b = history[1].spectrum;
+    const maxA = Math.max(...a.map(p => p.db)), maxB = Math.max(...b.map(p => p.db));
+    const n = Math.min(a.length, b.length);
+    for (let i = 0; i < n; i++) {
+      if (a[i].db > maxA - 15 && b[i].db > maxB - 15 && a[i].db > -100 && b[i].db > -100) {
+        const f0 = i > 0 ? Math.sqrt(a[i].f * a[i - 1].f) : fMin;
+        const f1 = i < n - 1 ? Math.sqrt(a[i].f * a[i + 1].f) : fMax;
+        overlaps.push({ x0: xOf(f0), x1: xOf(f1) });
+      }
+    }
+  }
+  const ticks = [50, 100, 200, 500, 1000, 2000, 5000, 10000].filter(f => f >= fMin && f <= fMax);
+
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between">
+        <p className="text-xs font-medium text-zinc-300">Frequency / tone{history.length >= 2 ? ' · overlap' : ''}</p>
+        {history.length >= 2 && <button onClick={onClear} className="text-[10px] text-zinc-500 hover:text-zinc-300">clear</button>}
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-36 w-full rounded-lg border border-zinc-800 bg-zinc-950" role="img" aria-label="Frequency tone curves; red bands show where two tracks overlap">
+        {overlaps.map((o, i) => <rect key={i} x={o.x0} y={padT} width={Math.max(0.5, o.x1 - o.x0)} height={H - padT - padB} fill="#ef4444" opacity={0.16} />)}
+        {ticks.map(f => <line key={f} x1={xOf(f)} y1={padT} x2={xOf(f)} y2={H - padB} stroke="#27272a" strokeWidth={0.75} />)}
+        {history.map((h, idx) => <path key={h.id} d={pathOf(h.spectrum)} fill="none" stroke={SPECTRUM_COLORS[idx] ?? '#a1a1aa'} strokeWidth={idx === 0 ? 2 : 1.5} opacity={idx === 0 ? 1 : 0.7} />)}
+      </svg>
+      <div className="relative mt-1 h-3 text-[10px] text-zinc-500">
+        {ticks.map(f => <span key={f} className="absolute -translate-x-1/2" style={{ left: (xOf(f) / W * 100) + '%' }}>{f >= 1000 ? (f / 1000) + 'k' : f}</span>)}
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
+        {history.map((h, idx) => <span key={h.id} className="flex items-center gap-1.5" style={{ color: SPECTRUM_COLORS[idx] ?? '#a1a1aa' }}><span className="inline-block h-1 w-4 rounded-sm" style={{ background: SPECTRUM_COLORS[idx] ?? '#a1a1aa' }} />{h.track}</span>)}
+        {history.length < 2 && <span className="text-zinc-500">Analyze another track (e.g. the snare) to overlay it here and see where they fight.</span>}
+      </div>
+      {history.length >= 2 && <p className="mt-2 text-[11px] text-zinc-500">Red bands are where <span className="text-zinc-300">{history[0].track}</span> and <span className="text-zinc-300">{history[1].track}</span> are both loud — where they mask each other. Carve one there to make room.</p>}
+    </div>
+  );
+}
+
+function Results({ report, metrics, current, spectra, onClearSpectra }: { report: NonNullable<ReaperState['levels']>; metrics: LevelMetrics; current: boolean; spectra: SpectrumEntry[]; onClearSpectra: () => void }) {
   return (
     <div className="mt-3 max-h-80 overflow-y-auto space-y-4">
       <p className="text-zinc-300">{report.trackName} / {report.takeName || 'Unnamed take'} · {report.startSeconds.toFixed(2)}–{report.endSeconds.toFixed(2)} s · {report.channels === 1 ? 'Mono' : 'Stereo'}</p>
@@ -155,6 +209,8 @@ function Results({ report, metrics, current }: { report: NonNullable<ReaperState
         {metrics.envelope && metrics.envelope.length > 1
           ? <LoudnessWaveform envelope={metrics.envelope} startSeconds={report.startSeconds} endSeconds={report.endSeconds} />
           : <LevelMeter peak={metrics.samplePeakDbfs!} rms={metrics.rmsDbfs!} />}
+
+        {spectra.length > 0 && <FrequencyView history={spectra} onClear={onClearSpectra} />}
 
         {/* the numbers, in boxes */}
         <dl className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -182,7 +238,7 @@ function Results({ report, metrics, current }: { report: NonNullable<ReaperState
   );
 }
 
-export function ReaperLevels({ state, analyze }: { state: ReaperState; analyze: AnalyzeView }) {
+export function ReaperLevels({ state, analyze, spectra, onClearSpectra }: { state: ReaperState; analyze: AnalyzeView; spectra: SpectrumEntry[]; onClearSpectra: () => void }) {
   const report = state.levels;
   const sameProject = report && state.snapshot?.project.sessionId === report.projectId;
   const sameTrack = report && state.snapshot?.tracks.length === 1 && state.snapshot.tracks[0].id === report.trackId;
@@ -222,6 +278,6 @@ export function ReaperLevels({ state, analyze }: { state: ReaperState; analyze: 
       ? <div className="mt-3" role="status">Measuring… {Math.round(report.progress * 100)}%</div>
       : report.status === 'error'
         ? <p role="alert" className="mt-3 text-amber-300">{report.message}</p>
-        : metrics && <Results report={report} metrics={metrics} current={current} />)}
+        : metrics && <Results report={report} metrics={metrics} current={current} spectra={spectra} onClearSpectra={onClearSpectra} />)}
   </details>;
 }
