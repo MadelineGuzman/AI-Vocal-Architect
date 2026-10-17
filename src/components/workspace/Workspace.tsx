@@ -8,26 +8,23 @@ export const Workspace: React.FC = () => {
   const { audioUrl, isAnalyzing, setIsImportModalOpen } = useProjectStore();
 
   if (!audioUrl) {
+    // Compact, unobtrusive entry point. The REAPER panel above is the live path;
+    // this is the standalone path — drop a file in to analyze it without REAPER.
     return (
-      <div className="flex-1 flex items-center justify-center bg-zinc-950 relative overflow-hidden">
-
-        {/* Ambient background blur */}
-        <div className="absolute inset-0 z-0 opacity-30 pointer-events-none">
-           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-900/20 rounded-full blur-[100px]" />
-           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-900/20 rounded-full blur-[100px]" />
-        </div>
-
-        <div
-          className="relative z-10 flex flex-col items-center gap-6 p-16 border border-zinc-800/50 bg-zinc-900/30 backdrop-blur-md rounded-3xl hover:border-zinc-700 hover:bg-zinc-900/50 transition-all cursor-pointer shadow-2xl group"
-          onClick={() => setIsImportModalOpen(true)}
-        >
-          <div className="w-20 h-20 rounded-2xl bg-zinc-800/50 flex items-center justify-center border border-zinc-700/50 group-hover:scale-105 transition-transform">
-            <Upload size={32} className="text-zinc-300" />
-          </div>
-          <div className="text-center max-w-sm">
-            <h3 className="text-xl font-semibold text-zinc-100 mb-2">Import Audio</h3>
-            <p className="text-sm text-zinc-400 leading-relaxed">Select a full song, demo, or vocal stem to begin architectural analysis.</p>
-          </div>
+      <div className="flex-1 overflow-y-auto bg-zinc-950">
+        <div className="mx-auto max-w-md px-6 py-6">
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="group flex w-full items-center gap-4 rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-4 text-left transition-all hover:border-zinc-700 hover:bg-zinc-900/70"
+          >
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-zinc-700/50 bg-zinc-800/60 transition-transform group-hover:scale-105">
+              <Upload size={20} className="text-zinc-300" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-zinc-100">Import a song to analyze</h3>
+              <p className="mt-0.5 text-xs text-zinc-400">Analyze a file directly in Cadenzai — no REAPER needed. Or use the REAPER panel above for a live read.</p>
+            </div>
+          </button>
         </div>
       </div>
     );

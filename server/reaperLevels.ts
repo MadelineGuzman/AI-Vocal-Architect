@@ -27,9 +27,15 @@ export function validateLevelReport(x: unknown, now=Date.now()): LevelReport {
     if (!m.silent && (m.samplePeakDbfs === undefined || m.rmsDbfs === undefined || m.crestDb === undefined)) throw new Error('Missing signal metrics');
     if (m.silent && (m.samplePeakDbfs !== undefined || m.rmsDbfs !== undefined || m.samplesAtFullScale !== 0)) throw new Error('Invalid silence metrics');
     if (m.activeWindows < 2 && m.activeVariationDb !== undefined) throw new Error('Insufficient active windows');
+    let envelope: number[] | undefined;
+    if (m.envelope !== undefined) {
+      if (!Array.isArray(m.envelope) || m.envelope.length > 300 ||
+          !m.envelope.every(v => typeof v === 'number' && Number.isFinite(v) && v >= -200 && v <= 20)) throw new Error('Invalid envelope');
+      envelope = m.envelope as number[];
+    }
     metrics={ samplePeakDbfs:m.samplePeakDbfs as number|undefined, rmsDbfs:m.rmsDbfs as number|undefined,
       crestDb:m.crestDb as number|undefined, activeVariationDb:m.activeVariationDb as number|undefined,
-      activeWindows:m.activeWindows, sampleCount:m.sampleCount, samplesAtFullScale:m.samplesAtFullScale, silent:m.silent };
+      activeWindows:m.activeWindows, sampleCount:m.sampleCount, samplesAtFullScale:m.samplesAtFullScale, silent:m.silent, envelope };
   }
   return { version:1,id:x.id,status:x.status as LevelReport['status'],message:x.message,updatedAt:x.updatedAt,
     requestId: requestId(x.requestId) ? x.requestId : undefined,

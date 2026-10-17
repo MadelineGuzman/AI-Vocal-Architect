@@ -107,7 +107,7 @@ function M.run(opts)
       takeId = take_id, takeName = reaper.GetTakeName(take), signal = 'take-pre-fx', sampleRate = rate, channels = channels,
       startSeconds = start_time, endSeconds = start_time + frames / rate, progress = 0 }
     publish()
-    local state = metrics.new(rate, channels)
+    local state = metrics.new(rate, channels, frames)
     local buffer = reaper.new_array(4096 * channels)
     local processed, last_publish = 0, reaper.time_precise()
     local function step()

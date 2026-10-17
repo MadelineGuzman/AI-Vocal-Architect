@@ -25,6 +25,17 @@ local clipped=signal(1,function(i) return i%2==0 and 1.1 or -1.1 end)
 assert(clipped.samplesAtFullScale==16000)
 local changing=signal(1,function(i) return i<8000 and 0.1 or 0.5 end)
 assert(changing.activeVariationDb>10)
+-- Envelope: when total frames are provided, a bounded peak-over-time array is produced.
+local withEnvelope=engine.new(8000,1,16000)
+for first=0,15999,137 do
+  local n=math.min(137,16000-first); local samples={}
+  for i=0,n-1 do samples[#samples+1]=0.5*math.sin(2*math.pi*1000*(first+i)/8000) end
+  engine.add(withEnvelope,samples,n)
+end
+local enveloped=engine.finish(withEnvelope)
+assert(type(enveloped.envelope)=='table' and #enveloped.envelope>0 and #enveloped.envelope<=240,'bounded envelope produced')
+assert(enveloped.envelope[1]<0,'envelope values are in dBFS')
+assert(signal(1,function(i) return 0.5*math.sin(2*math.pi*1000*i/8000) end).envelope==nil,'no envelope without total frames')
 assert(not pcall(function() engine.add(engine.new(8000,1),{0/0},1) end))
 
 -- Real action tested against API doubles; any unlisted API (including a project write) fails.
@@ -96,7 +107,7 @@ local function run(options)
 end
 local output,messages,releases,reads=run()
 assert(#messages==0 and releases==1);near(reads[1],0.25)
-assert(output:find('"status":"ready"',1,true));print(output)
+assert(output:find('"status":"ready"',1,true));assert(output:find('"envelope":[',1,true),'ready report includes a loudness envelope');print(output)
 -- With no time selection, the whole item (position 10, length 2) is measured.
 local whole,wmsgs,wrel,wreads=run({empty=true})
 assert(#wmsgs==0 and wrel==1 and whole:find('"status":"ready"',1,true),'empty selection measures the whole item')

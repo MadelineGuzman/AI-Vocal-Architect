@@ -69,6 +69,42 @@ function LevelMeter({ peak, rms }: { peak: number; rms: number }) {
   );
 }
 
+// Loudness over time: each bin coloured by its loudest peak — blue (quiet) to
+// red (near clipping) — so the shape of the song is visible at a glance.
+function loudnessColor(db: number): string {
+  if (db >= -1) return '#ef4444';   // red — at or near clipping
+  if (db >= -4) return '#f97316';   // orange
+  if (db >= -9) return '#f59e0b';   // amber — getting hot
+  if (db >= -18) return '#84cc16';  // lime — healthy
+  if (db >= -30) return '#14b8a6';  // teal
+  if (db >= -48) return '#3b82f6';  // blue — quiet
+  return '#1e3a8a';                 // deep blue — near silence
+}
+
+function LoudnessStrip({ envelope, startSeconds, endSeconds }: { envelope: number[]; startSeconds: number; endSeconds: number }) {
+  const span = Math.max(0, endSeconds - startSeconds);
+  const n = envelope.length;
+  return (
+    <div>
+      <div className="flex h-16 w-full overflow-hidden rounded-lg border border-zinc-800" role="img" aria-label="Loudness over time, coloured from blue (quiet) to red (near clipping)">
+        {envelope.map((db, i) => {
+          const t = startSeconds + ((i + 0.5) / n) * span;
+          return <div key={i} className="h-full flex-1" style={{ backgroundColor: loudnessColor(db) }} title={`${t.toFixed(1)}s · ${db.toFixed(1)} dBFS`} />;
+        })}
+      </div>
+      <div className="relative mt-1 h-3 text-[10px] text-zinc-500">
+        <span className="absolute left-0">{startSeconds.toFixed(1)}s</span>
+        <span className="absolute right-0">{endSeconds.toFixed(1)}s</span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-500">
+        {([['#3b82f6', 'quiet'], ['#84cc16', 'healthy'], ['#f59e0b', 'hot'], ['#ef4444', 'near clip']] as const).map(([c, label]) =>
+          <span key={label} className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: c }} /> {label}</span>)}
+      </div>
+      <p className="mt-2 text-[11px] text-zinc-500">Each slice is a moment of the take, coloured by its loudest peak — red is near clipping, blue is quiet. Hover a slice for its time and level.</p>
+    </div>
+  );
+}
+
 function Results({ report, metrics, current }: { report: NonNullable<ReaperState['levels']>; metrics: LevelMetrics; current: boolean }) {
   return (
     <div className="mt-3 max-h-80 overflow-y-auto space-y-4">
@@ -83,7 +119,9 @@ function Results({ report, metrics, current }: { report: NonNullable<ReaperState
           ? <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-300"><AlertTriangle size={16} /> {metrics.samplesAtFullScale} sample{metrics.samplesAtFullScale === 1 ? '' : 's'} reached 0 dBFS — check this part for overload.</div>
           : <div className="flex items-center gap-2 rounded-lg border border-green-500/25 bg-green-500/10 px-3 py-2.5 text-sm text-green-300"><CheckCircle2 size={16} /> No samples reached 0 dBFS — you have headroom.</div>}
 
-        <LevelMeter peak={metrics.samplePeakDbfs!} rms={metrics.rmsDbfs!} />
+        {metrics.envelope && metrics.envelope.length > 1
+          ? <LoudnessStrip envelope={metrics.envelope} startSeconds={report.startSeconds} endSeconds={report.endSeconds} />
+          : <LevelMeter peak={metrics.samplePeakDbfs!} rms={metrics.rmsDbfs!} />}
 
         {/* the numbers, in boxes */}
         <dl className="grid grid-cols-2 lg:grid-cols-4 gap-3">
