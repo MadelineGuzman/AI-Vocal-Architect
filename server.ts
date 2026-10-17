@@ -1,6 +1,6 @@
 import { readLevelReport } from './server/reaperLevels';
 import { createReaperReader, localRequestOnly } from './server/reaper';
-import { createAnalyzeHandler } from './server/reaperRequest';
+import { createAnalyzeHandler, createCursorHandler } from './server/reaperRequest';
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -33,6 +33,9 @@ async function startServer() {
 
   // Setup JSON body parsing for API requests
   app.use(express.json());
+
+  // Navigation only: move REAPER's edit cursor to a clicked point (no edits).
+  app.post('/api/reaper/cursor', createCursorHandler({ readConnection: readReaper }));
 
   // Set up GenAI Client (server-side only)
   let ai: GoogleGenAI | null = null;

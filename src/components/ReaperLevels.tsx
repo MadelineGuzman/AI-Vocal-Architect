@@ -93,12 +93,22 @@ function levelWord(db: number): string {
 
 function LoudnessWaveform({ envelope, startSeconds, endSeconds }: { envelope: number[]; startSeconds: number; endSeconds: number }) {
   const [selected, setSelected] = useState<number | null>(null);
+  const [jumped, setJumped] = useState<boolean | null>(null);
   const n = envelope.length;
   const span = Math.max(0, endSeconds - startSeconds);
   const W = 1000, H = 120, mid = H / 2;
   const barW = W / n;
   const amp = (db: number) => Math.min(1, Math.pow(10, db / 20)); // dBFS -> linear height
   const timeOf = (i: number) => startSeconds + ((i + 0.5) / n) * span;
+  const select = (i: number) => {
+    const next = i === selected ? null : i;
+    setSelected(next);
+    setJumped(null);
+    if (next === null) return;
+    // Navigation only: ask REAPER to move its edit cursor here. No edits.
+    fetch('/api/reaper/cursor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timeSeconds: timeOf(next) }) })
+      .then(r => setJumped(r.ok)).catch(() => setJumped(false));
+  };
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-28 w-full rounded-lg border border-zinc-800 bg-zinc-950" role="img" aria-label="Loudness waveform: taller and redder where louder, coloured blue (quiet) to red (near clipping)">
@@ -107,7 +117,7 @@ function LoudnessWaveform({ envelope, startSeconds, endSeconds }: { envelope: nu
           const h = Math.max(0.6, amp(db) * (mid - 2));
           return <rect key={i} x={i * barW} y={mid - h} width={Math.max(barW, 0.8)} height={h * 2}
             fill={loudnessColor(db)} opacity={selected === null || selected === i ? 1 : 0.5}
-            style={{ cursor: 'pointer' }} onClick={() => setSelected(i === selected ? null : i)}>
+            style={{ cursor: 'pointer' }} onClick={() => select(i)}>
             <title>{`${timeOf(i).toFixed(1)}s · ${db.toFixed(1)} dBFS`}</title>
           </rect>;
         })}
@@ -118,7 +128,7 @@ function LoudnessWaveform({ envelope, startSeconds, endSeconds }: { envelope: nu
         <span className="absolute right-0">{endSeconds.toFixed(1)}s</span>
       </div>
       {selected !== null
-        ? <p className="mt-2 text-xs"><span className="font-medium text-zinc-200">At {timeOf(selected).toFixed(1)}s</span> · <span style={{ color: loudnessColor(envelope[selected]) }}>{envelope[selected].toFixed(1)} dBFS — {levelWord(envelope[selected])}</span><span className="text-zinc-500"> · go to this time in REAPER to hear it.</span></p>
+        ? <p className="mt-2 text-xs"><span className="font-medium text-zinc-200">At {timeOf(selected).toFixed(1)}s</span> · <span style={{ color: loudnessColor(envelope[selected]) }}>{envelope[selected].toFixed(1)} dBFS — {levelWord(envelope[selected])}</span><span className="text-zinc-500">{jumped === true ? ' · moved REAPER’s playhead here — press play in REAPER to hear it.' : jumped === false ? ' · go to this time in REAPER (couldn’t move the playhead — is it connected?).' : ' · go to this time in REAPER to hear it.'}</span></p>
         : <p className="mt-2 text-[11px] text-zinc-500">Your take's loudness shape — taller and redder means louder. Click any spot to read its exact time and level.</p>}
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-500">
         {([['#3b82f6', 'quiet'], ['#84cc16', 'healthy'], ['#f59e0b', 'hot'], ['#ef4444', 'near clip']] as const).map(([c, label]) =>

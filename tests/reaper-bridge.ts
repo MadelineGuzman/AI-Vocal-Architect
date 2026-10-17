@@ -84,6 +84,11 @@ try {
     assert.equal(report.requestId, 'req-test-00000001');
     assert.ok(report.metrics?.samplePeakDbfs !== undefined, 'analysis produced metrics');
     console.log(analyzeLines[1]);
+
+    // The continuous bridge also moves the edit cursor on a navigation request.
+    const cursor = spawnSync('lua', ['tests/reaper-bridge-cursor.lua'], { encoding: 'utf8' });
+    assert.equal(cursor.status, 0, cursor.stderr);
+    console.log(cursor.stdout.trim());
   }
   console.log('REAPER snapshot, expiry, recovery, size, schema, Unicode and HTTP origin tests passed.');
 } finally { await rm(folder, { recursive: true, force: true }); }

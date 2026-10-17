@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import express from 'express';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createAnalyzeHandler, readPendingRequest, writeAnalyzeRequest, PENDING_REQUEST_MS } from '../server/reaperRequest';
+import { createAnalyzeHandler, createCursorHandler, readPendingRequest, writeAnalyzeRequest, PENDING_REQUEST_MS } from '../server/reaperRequest';
 import { localRequestOnly } from '../server/reaper';
 
 const folder = await mkdtemp(path.join(os.tmpdir(), 'cadenzai-request-test-'));
@@ -71,6 +71,37 @@ try {
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
   console.log('REAPER analyze request channel: module round-trip, concurrency/pending guards, stale expiry and origin rejection tests passed.');
+
+  // --- POST /api/reaper/cursor (navigation only) ---
+  const cursorFile = path.join(folder, 'cursor.json');
+  let cursorConn = 'connected';
+  const capp = express();
+  let cport = 0;
+  capp.use((req, res, next) => localRequestOnly(cport)(req, res, next));
+  capp.use(express.json());
+  capp.post('/api/reaper/cursor', createCursorHandler({ readConnection: async () => ({ status: cursorConn }), cursorFile, now: () => 555 }));
+  const cserver = capp.listen(0, '127.0.0.1');
+  await new Promise<void>(resolve => cserver.once('listening', resolve));
+  cport = (cserver.address() as { port: number }).port;
+  const curl = 'http://127.0.0.1:' + cport + '/api/reaper/cursor';
+  const chost = '127.0.0.1:' + cport;
+  const cpost = (body: unknown, headers: Record<string, string> = {}) =>
+    fetch(curl, { method: 'POST', headers: { Host: chost, Origin: 'http://' + chost, 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await cpost({ timeSeconds: 12.5 })).status, 200, 'valid cursor move accepted');
+    const written = JSON.parse(await readFile(cursorFile, 'utf8')) as { kind: string; timeSeconds: number };
+    assert.equal(written.kind, 'move-cursor');
+    assert.equal(written.timeSeconds, 12.5);
+    assert.equal((await cpost({ timeSeconds: -5 })).status, 400, 'negative time rejected');
+    assert.equal((await cpost({ timeSeconds: 'x' })).status, 400, 'non-numeric time rejected');
+    cursorConn = 'disconnected';
+    assert.equal((await cpost({ timeSeconds: 1 })).status, 409, 'rejected when REAPER is not connected');
+    cursorConn = 'connected';
+    assert.equal((await cpost({ timeSeconds: 1 }, { Origin: 'https://untrusted.example' })).status, 403, 'cross-origin rejected');
+  } finally {
+    await new Promise<void>((resolve, reject) => cserver.close(error => error ? reject(error) : resolve()));
+  }
+  console.log('REAPER cursor move: valid/invalid time, disconnected and origin guards passed.');
 } finally {
   await rm(folder, { recursive: true, force: true });
 }

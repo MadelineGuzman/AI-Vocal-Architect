@@ -83,3 +83,34 @@ export function createAnalyzeHandler(deps: AnalyzeHandlerDeps) {
     }
   };
 }
+
+// Navigation only: ask the bridge to move REAPER's edit cursor to a time. This
+// reads nothing and changes no audio, effects, routing, or project content — it
+// is the producer clicking a spot, not Cadenzai editing anything.
+export function cursorPath() {
+  return path.join(path.dirname(bridgePath()), 'cursor.json');
+}
+
+export async function writeCursorRequest(timeSeconds: number, now = Date.now(), filename = cursorPath()): Promise<void> {
+  if (!Number.isFinite(timeSeconds)) throw new Error('Invalid cursor time');
+  const body = JSON.stringify({ version: 1, kind: 'move-cursor', timeSeconds, requestedAt: now });
+  await writeFile(filename, body, { encoding: 'utf8' });
+}
+
+export function createCursorHandler(deps: { readConnection: () => Promise<{ status: string }>; cursorFile?: string; now?: () => number }) {
+  const cursorFile = deps.cursorFile ?? cursorPath();
+  const now = deps.now ?? Date.now;
+  return async (req: Request, res: Response): Promise<void> => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const t = Number((req.body as { timeSeconds?: unknown } | undefined)?.timeSeconds);
+      if (!Number.isFinite(t) || t < 0 || t > 1e7) { res.status(400).json({ error: 'Invalid cursor time.' }); return; }
+      const connection = await deps.readConnection();
+      if (connection.status !== 'connected') { res.status(409).json({ error: 'REAPER is not connected.' }); return; }
+      await writeCursorRequest(t, now(), cursorFile);
+      res.json({ ok: true });
+    } catch {
+      res.status(500).json({ error: 'The move request could not be sent.' });
+    }
+  };
+}

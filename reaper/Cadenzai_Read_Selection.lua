@@ -13,6 +13,7 @@ local directory = base .. '/Cadenzai/reaper-bridge'
 reaper.RecursiveCreateDirectory(directory, 0)
 local filename = directory .. '/state.json'
 local request_file = directory .. '/request.json'
+local cursor_file = directory .. '/cursor.json'
 local json = dofile(script_dir .. 'lib/json.lua')
 local metrics = dofile(script_dir .. 'lib/levels.lua')
 local analyze = dofile(script_dir .. 'lib/analyze.lua')
@@ -23,6 +24,7 @@ local projects = {}
 local sequence, last_poll, last_publish = 0, -1, -1
 local last_content = nil
 local last_handled = nil
+local last_cursor = nil
 
 -- Read the single approved request file. Only a correlation id is extracted;
 -- no paths, commands, or executable data are ever read from it.
@@ -38,6 +40,21 @@ local function read_request()
   -- Ignore stale or clock-skewed requests so a restart cannot replay an old one.
   if requested and math.abs(os.time() * 1000 - requested) > 20000 then return nil end
   return id
+end
+
+-- Read a navigation-only request to move the edit cursor to a time. No edits.
+local function read_cursor()
+  local file = io.open(cursor_file, 'rb')
+  if not file then return nil end
+  local content = file:read(512)
+  file:close()
+  if not content or not content:find('"kind":"move-cursor"', 1, true) then return nil end
+  local t = tonumber(content:match('"timeSeconds":(%-?%d+%.?%d*)'))
+  local stamp = content:match('"requestedAt":(%d+)')
+  if not t or not stamp or t < -1 or t > 1e7 then return nil end
+  local requested = tonumber(stamp)
+  if requested and math.abs(os.time() * 1000 - requested) > 20000 then return nil end
+  return { time = t, stamp = stamp }
 end
 
 local function quote(value)
@@ -99,6 +116,14 @@ local function tick()
       end
       reaper.SetExtState('CadenzaiBridge', 'heartbeat', tostring(os.time()), false)
       last_content, last_publish = content, now
+    end
+    -- Navigation only: move REAPER's edit cursor to a clicked point. No edits,
+    -- no audio, no project changes — the producer is driving, not Cadenzai.
+    local cursor = read_cursor()
+    if cursor and cursor.stamp ~= last_cursor then
+      last_cursor = cursor.stamp
+      os.remove(cursor_file)
+      reaper.SetEditCurPos(cursor.time, true, true)
     end
     -- One analysis at a time; a new request id starts a read-only measurement
     -- of whatever is selected in REAPER at this moment.
