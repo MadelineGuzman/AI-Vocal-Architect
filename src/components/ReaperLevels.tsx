@@ -224,8 +224,11 @@ function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear
 
 function Results({ report, metrics, current, spectra, onClearSpectra }: { report: NonNullable<ReaperState['levels']>; metrics: LevelMetrics; current: boolean; spectra: SpectrumEntry[]; onClearSpectra: () => void }) {
   return (
-    <div className="mt-3 max-h-80 overflow-y-auto space-y-4">
-      <p className="text-zinc-300">{report.trackName} / {report.takeName || 'Unnamed take'} · {report.startSeconds.toFixed(2)}–{report.endSeconds.toFixed(2)} s · {report.channels === 1 ? 'Mono' : 'Stereo'}</p>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <p className="text-sm font-medium text-zinc-200">{report.trackName} / {report.takeName || 'Unnamed take'}</p>
+        <p className="text-zinc-500">{report.startSeconds.toFixed(2)}–{report.endSeconds.toFixed(2)} s · {report.channels === 1 ? 'Mono' : 'Stereo'} · {report.sampleRate.toLocaleString()} Hz</p>
+      </div>
       {!current && <p className="text-amber-300">Historical result. The connection, project, track selection, or project revision no longer matches. Rerun for a current measurement.</p>}
 
       {metrics.silent ? (
@@ -236,11 +239,20 @@ function Results({ report, metrics, current, spectra, onClearSpectra }: { report
           ? <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-300"><AlertTriangle size={16} /> {metrics.samplesAtFullScale} sample{metrics.samplesAtFullScale === 1 ? '' : 's'} reached 0 dBFS — check this part for overload.</div>
           : <div className="flex items-center gap-2 rounded-lg border border-green-500/25 bg-green-500/10 px-3 py-2.5 text-sm text-green-300"><CheckCircle2 size={16} /> No samples reached 0 dBFS — you have headroom.</div>}
 
-        {metrics.envelope && metrics.envelope.length > 1
-          ? <LoudnessWaveform envelope={metrics.envelope} startSeconds={report.startSeconds} endSeconds={report.endSeconds} />
-          : <LevelMeter peak={metrics.samplePeakDbfs!} rms={metrics.rmsDbfs!} />}
-
-        {spectra.length > 0 && <FrequencyView history={spectra} onClear={onClearSpectra} />}
+        {/* Time (loudness) and tone (frequency) side by side. */}
+        <div className="grid gap-5 lg:grid-cols-2">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+            <p className="mb-2 text-xs font-medium text-zinc-300">Loudness over time</p>
+            {metrics.envelope && metrics.envelope.length > 1
+              ? <LoudnessWaveform envelope={metrics.envelope} startSeconds={report.startSeconds} endSeconds={report.endSeconds} />
+              : <LevelMeter peak={metrics.samplePeakDbfs!} rms={metrics.rmsDbfs!} />}
+          </div>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+            {spectra.length > 0
+              ? <FrequencyView history={spectra} onClear={onClearSpectra} />
+              : <div className="flex h-full min-h-[160px] items-center justify-center text-center text-[11px] text-zinc-600">Tone / frequency appears here after analyzing. If it stays empty, reload the bridge in REAPER to enable it.</div>}
+          </div>
+        </div>
 
         {/* the numbers, in boxes */}
         <dl className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -274,40 +286,42 @@ export function ReaperLevels({ state, analyze, spectra, onClearSpectra }: { stat
   const sameTrack = report && state.snapshot?.tracks.length === 1 && state.snapshot.tracks[0].id === report.trackId;
   const current = Boolean(state.status === 'connected' && sameProject && sameTrack && state.snapshot?.revision === report?.projectRevision);
   const metrics = report?.metrics;
-  return <details className="mt-3 border-t border-zinc-800 pt-2 text-xs text-zinc-400" open={Boolean(report || state.levelsNotice || analyze.phase !== 'idle')}>
-    <summary className="cursor-pointer py-1 font-medium text-zinc-200">Recording level check{report ? ' · ' + (current ? report.status : 'previous snapshot') : ''}</summary>
-
-    <div className="mt-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-zinc-200 font-medium">Analyze selected section</p>
-          <p className="mt-0.5 text-zinc-500">{selectionHint(state)}</p>
+  return (
+    <div className="space-y-4 text-xs text-zinc-400">
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-zinc-200 font-medium">Analyze selected section</p>
+            <p className="mt-0.5 text-zinc-500">{selectionHint(state)}</p>
+          </div>
+          <button
+            onClick={analyze.onAnalyze}
+            disabled={!analyze.canAnalyze}
+            className="flex shrink-0 items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-medium text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-cyan-600"
+          >
+            {analyze.phase === 'sending' || analyze.phase === 'waiting' || analyze.phase === 'measuring'
+              ? <><Loader2 size={14} className="animate-spin" /> Analyzing…</>
+              : <><Activity size={14} /> Analyze selected section</>}
+          </button>
         </div>
-        <button
-          onClick={analyze.onAnalyze}
-          disabled={!analyze.canAnalyze}
-          className="flex shrink-0 items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-medium text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-cyan-600"
-        >
-          {analyze.phase === 'sending' || analyze.phase === 'waiting' || analyze.phase === 'measuring'
-            ? <><Loader2 size={14} className="animate-spin" /> Analyzing…</>
-            : <><Activity size={14} /> Analyze selected section</>}
-        </button>
+        <StatusLine analyze={analyze} />
+        <p className="mt-3 text-[11px] text-zinc-500">Read-only · measures the selected take before effects · no gain changes · samples stay in REAPER.</p>
       </div>
-      <StatusLine analyze={analyze} />
-      <p className="mt-3 text-[11px] text-zinc-500">Read-only · measures the selected take before effects · no gain changes · samples stay in REAPER.</p>
-    </div>
 
-    {state.levelsNotice && <section role="status" className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-5">
-      <p className="text-xs font-medium uppercase tracking-widest text-cyan-300">Recording level check</p>
-      <h3 className="mt-2 text-lg font-semibold text-zinc-100">One step before we can measure</h3>
-      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-300">{state.levelsNotice.message}</p>
-      <p className="mt-3 text-xs text-zinc-500">Your audio is unchanged. Check attempted {new Date(state.levelsNotice.updatedAt).toLocaleString()}.</p>
-    </section>}
-    {state.levelsError && <p role="alert" className="mt-2 text-amber-300">{state.levelsError}</p>}
-    {report && (report.status === 'running'
-      ? <div className="mt-3" role="status">Measuring… {Math.round(report.progress * 100)}%</div>
-      : report.status === 'error'
-        ? <p role="alert" className="mt-3 text-amber-300">{report.message}</p>
-        : metrics && <Results report={report} metrics={metrics} current={current} spectra={spectra} onClearSpectra={onClearSpectra} />)}
-  </details>;
+      {state.levelsNotice && <section role="status" className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-5">
+        <p className="text-xs font-medium uppercase tracking-widest text-cyan-300">Recording level check</p>
+        <h3 className="mt-2 text-lg font-semibold text-zinc-100">One step before we can measure</h3>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-300">{state.levelsNotice.message}</p>
+        <p className="mt-3 text-xs text-zinc-500">Your audio is unchanged. Check attempted {new Date(state.levelsNotice.updatedAt).toLocaleString()}.</p>
+      </section>}
+      {state.levelsError && <p role="alert" className="text-amber-300">{state.levelsError}</p>}
+      {report
+        ? (report.status === 'running'
+            ? <p role="status" className="text-cyan-300">Measuring… {Math.round(report.progress * 100)}%</p>
+            : report.status === 'error'
+              ? <p role="alert" className="text-amber-300">{report.message}</p>
+              : metrics && <Results report={report} metrics={metrics} current={current} spectra={spectra} onClearSpectra={onClearSpectra} />)
+        : !state.levelsNotice && <p className="text-zinc-600">Select audio in REAPER and click Analyze — your loudness waveform and tone curve appear here.</p>}
+    </div>
+  );
 }

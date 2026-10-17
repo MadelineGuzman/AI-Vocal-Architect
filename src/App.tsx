@@ -12,6 +12,7 @@ import { Loader2 } from 'lucide-react';
 function App() {
   const initialize = useProjectStore(state => state.initialize);
   const isReady = useProjectStore(state => state.isReady);
+  const audioUrl = useProjectStore(state => state.audioUrl);
 
   // StrictMode double-invokes effects; the store guards initialize() so this runs once.
   useEffect(() => { void initialize(); }, [initialize]);
@@ -31,8 +32,10 @@ function App() {
     <div className="h-screen w-full bg-zinc-950 text-zinc-200 font-sans flex flex-col overflow-hidden selection:bg-zinc-800">
       <TopBar />
       <ProjectBar />
-      <ReaperConnection />
-      <Workspace />
+      {/* The main canvas: an imported file's workspace, or the roomy REAPER analysis dashboard. */}
+      <div className="flex flex-1 overflow-hidden">
+        {audioUrl ? <Workspace /> : <ReaperConnection />}
+      </div>
       <ImportAudioDialog />
       <HumToSparkDialog />
       <ProjectPicker />

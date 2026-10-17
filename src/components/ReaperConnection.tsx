@@ -1,7 +1,8 @@
 import { ReaperLevels } from './ReaperLevels';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Cable, ChevronDown } from 'lucide-react';
+import { Cable } from 'lucide-react';
 import type { ReaperState, AnalyzeRequestResponse } from '../types/reaper';
+import { useProjectStore } from '../store/projectStore';
 
 const initial: ReaperState = { status: 'waiting', snapshot: null, message: 'Checking local connection…' };
 
@@ -25,6 +26,7 @@ export interface SpectrumEntry {
 }
 
 export function ReaperConnection() {
+  const setIsImportModalOpen = useProjectStore(s => s.setIsImportModalOpen);
   const [state, setState] = useState<ReaperState>(initial);
   const [request, setRequest] = useState<{ id: string; startedAt: number } | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
@@ -123,31 +125,33 @@ export function ReaperConnection() {
   const busy = phase === 'sending' || phase === 'waiting' || phase === 'measuring';
   const analyze: AnalyzeView = { phase, message: phaseMessage, progress, canAnalyze: connected && !busy, onAnalyze };
 
+  const trackLabel = snapshot
+    ? (snapshot.tracks.length === 0 ? 'No track selected' : snapshot.tracks.length === 1 ? (snapshot.tracks[0].name || 'Unnamed track') : snapshot.tracks.length + ' tracks selected')
+    : '';
+
   return (
-    <section aria-label="REAPER connection" className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-6 py-3">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
-        <span className="flex items-center gap-2 font-semibold tracking-wide text-zinc-200"><Cable size={15} /> REAPER</span>
-        <span role="status" className={connected ? 'text-cyan-400' : 'text-amber-300'}>{label}</span>
-        <span className="text-zinc-500">{message}</span>
-        {snapshot && <span className="ml-auto text-zinc-400">{snapshot.project.name}{snapshot.project.saved ? '' : ' · unsaved'}</span>}
+    <section aria-label="REAPER analysis" className="flex flex-1 flex-col overflow-hidden bg-zinc-950">
+      {/* Slim always-visible status strip. */}
+      <div className="shrink-0 border-b border-zinc-800 px-6 py-2.5">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
+          <span className="flex items-center gap-2 font-semibold tracking-wide text-zinc-200"><Cable size={15} /> REAPER</span>
+          <span role="status" className={connected ? 'text-cyan-400' : 'text-amber-300'}>{label}</span>
+          {status !== 'connected' && <span className="text-zinc-500">{message}</span>}
+          {snapshot
+            ? <span className="text-zinc-400">{connected ? '' : 'Last known: '}{trackLabel}</span>
+            : <span className="text-zinc-500">Run “Cadenzai_Read_Selection.lua” in REAPER to connect — no audio is transferred.</span>}
+          <span className="ml-auto flex items-center gap-3 text-zinc-500">
+            {snapshot && <span>{snapshot.project.name}{snapshot.project.saved ? '' : ' · unsaved'}</span>}
+            <button onClick={() => setIsImportModalOpen(true)} className="rounded border border-zinc-800 px-2 py-1 hover:border-zinc-700 hover:text-zinc-300">Import a song instead</button>
+          </span>
+        </div>
       </div>
-      {snapshot ? (
-        <details className="mt-2 text-xs text-zinc-400">
-          <summary className="cursor-pointer py-1 text-zinc-200">
-            <ChevronDown size={12} className="inline mr-2" />
-            {connected ? '' : 'Last known: '}
-            {snapshot.tracks.length === 0 ? 'No track selected' : snapshot.tracks.length === 1 ? snapshot.tracks[0].name || 'Unnamed track' : snapshot.tracks.length + ' tracks selected'}
-          </summary>
-          <div className="max-h-40 overflow-auto pt-2 space-y-2">
-            {snapshot.tracks.map(track => <div key={track.id} className="flex flex-wrap gap-x-4 gap-y-1">
-              <span className="text-zinc-300">{track.isMaster ? 'Master' : 'Track ' + track.number}: {track.name || 'Unnamed track'}</span>
-              <span className="font-mono break-all">ID: {track.id}</span>
-            </div>)}
-            <p>Last update: {new Date(snapshot.updatedAt).toLocaleTimeString()}</p>
-          </div>
-        </details>
-      ) : <p className="mt-2 text-xs text-zinc-500">In REAPER, load and run “Cadenzai_Read_Selection.lua” from Actions. No audio is transferred.</p>}
-      <ReaperLevels state={state} analyze={analyze} spectra={spectra} onClearSpectra={() => setSpectra([])} />
+      {/* Roomy results dashboard. */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-6xl p-6">
+          <ReaperLevels state={state} analyze={analyze} spectra={spectra} onClearSpectra={() => setSpectra([])} />
+        </div>
+      </div>
     </section>
   );
 }
