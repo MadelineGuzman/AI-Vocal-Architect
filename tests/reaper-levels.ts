@@ -15,6 +15,8 @@ assert.equal(ready.startSeconds,10.25); assert.equal(ready.endSeconds,11.25);
 assert.ok(Array.isArray(ready.metrics!.envelope) && ready.metrics!.envelope!.length>0,'envelope present in validated report');
 assert.throws(()=>validateLevelReport({...report,metrics:{...report.metrics,envelope:[1,'x']}},1000000),'non-numeric envelope rejected');
 assert.throws(()=>validateLevelReport({...report,metrics:{...report.metrics,envelope:new Array(700).fill(-6)}},1000000),'oversize envelope rejected');
+assert.ok(Array.isArray(ready.metrics!.spectrum) && ready.metrics!.spectrum!.length>0,'spectrum present in validated report');
+assert.throws(()=>validateLevelReport({...report,metrics:{...report.metrics,spectrum:[{f:100,db:'x'}]}},1000000),'non-numeric spectrum rejected');
 assert.throws(()=>validateLevelReport({...report,metrics:{...report.metrics,rmsDbfs:'fake'}},1000000));
 assert.throws(()=>validateLevelReport({...report,metrics:{...report.metrics,sampleCount:-1}},1000000));
 assert.throws(()=>validateLevelReport({...report,progress:0.5},1000000));

@@ -25,8 +25,10 @@ export interface AnalyzeRequestResponse {
 export interface LevelMetrics {
   samplePeakDbfs?: number; rmsDbfs?: number; crestDb?: number; activeVariationDb?: number;
   activeWindows: number; samplesAtFullScale: number; sampleCount: number; silent: boolean;
-  // Downsampled peak-over-time envelope in dBFS (for the loudness strip).
+  // Downsampled peak-over-time envelope in dBFS (for the loudness waveform).
   envelope?: number[];
+  // Log-spaced relative tone curve (for the frequency view / overlap).
+  spectrum?: { f: number; db: number }[];
 }
 export interface LevelReport {
   version: 1; id: string; status: 'running' | 'ready' | 'error'; message: string; updatedAt: number;

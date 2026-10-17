@@ -33,9 +33,16 @@ export function validateLevelReport(x: unknown, now=Date.now()): LevelReport {
           !m.envelope.every(v => typeof v === 'number' && Number.isFinite(v) && v >= -200 && v <= 20)) throw new Error('Invalid envelope');
       envelope = m.envelope as number[];
     }
+    let spectrum: { f: number; db: number }[] | undefined;
+    if (m.spectrum !== undefined) {
+      if (!Array.isArray(m.spectrum) || m.spectrum.length > 64 ||
+          !m.spectrum.every(p => object(p) && typeof p.f === 'number' && Number.isFinite(p.f) && p.f >= 0 && p.f <= 100000 &&
+            typeof p.db === 'number' && Number.isFinite(p.db) && p.db >= -200 && p.db <= 60)) throw new Error('Invalid spectrum');
+      spectrum = (m.spectrum as { f: number; db: number }[]).map(p => ({ f: p.f, db: p.db }));
+    }
     metrics={ samplePeakDbfs:m.samplePeakDbfs as number|undefined, rmsDbfs:m.rmsDbfs as number|undefined,
       crestDb:m.crestDb as number|undefined, activeVariationDb:m.activeVariationDb as number|undefined,
-      activeWindows:m.activeWindows, sampleCount:m.sampleCount, samplesAtFullScale:m.samplesAtFullScale, silent:m.silent, envelope };
+      activeWindows:m.activeWindows, sampleCount:m.sampleCount, samplesAtFullScale:m.samplesAtFullScale, silent:m.silent, envelope, spectrum };
   }
   return { version:1,id:x.id,status:x.status as LevelReport['status'],message:x.message,updatedAt:x.updatedAt,
     requestId: requestId(x.requestId) ? x.requestId : undefined,

@@ -36,6 +36,20 @@ local enveloped=engine.finish(withEnvelope)
 assert(type(enveloped.envelope)=='table' and #enveloped.envelope>0 and #enveloped.envelope<=480,'bounded envelope produced')
 assert(enveloped.envelope[1]<0,'envelope values are in dBFS')
 assert(signal(1,function(i) return 0.5*math.sin(2*math.pi*1000*i/8000) end).envelope==nil,'no envelope without total frames')
+-- Spectrum: a 1 kHz tone peaks in the ~1 kHz band of the relative tone curve.
+do
+  local s=engine.new(8000,1,16000)
+  for first=0,15999,137 do
+    local n=math.min(137,16000-first); local samples={}
+    for i=0,n-1 do samples[#samples+1]=0.5*math.sin(2*math.pi*1000*(first+i)/8000) end
+    engine.add(s,samples,n)
+  end
+  local r=engine.finish(s)
+  assert(type(r.spectrum)=='table' and #r.spectrum>0,'spectrum produced')
+  local bestB,bestDb=1,-1e9
+  for b,p in ipairs(r.spectrum) do if p.db>bestDb then bestDb=p.db; bestB=b end end
+  assert(r.spectrum[bestB].f>850 and r.spectrum[bestB].f<1180,'spectrum peak near 1 kHz, got '..r.spectrum[bestB].f)
+end
 assert(not pcall(function() engine.add(engine.new(8000,1),{0/0},1) end))
 
 -- Real action tested against API doubles; any unlisted API (including a project write) fails.
