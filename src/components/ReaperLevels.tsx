@@ -318,11 +318,11 @@ function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear
   return (
     <div>
       <div className="mb-1 flex items-center justify-between gap-2">
-        <p className="text-xs font-medium text-zinc-300">Frequency / tone{drawOn ? ' · draw the shape you want' : history.length >= 2 ? ' · overlap' : ''}</p>
+        <p className="text-xs font-medium text-zinc-300">Frequency / tone{drawOn ? <> · drawing EQ for <span className="text-amber-300">{primary.track}</span></> : history.length >= 2 ? ' · overlap' : ''}</p>
         <div className="flex items-center gap-2">
           {drawOn
             ? <>
-                <button onClick={resetDraw} className="text-[10px] text-zinc-500 hover:text-zinc-300">reset</button>
+                <button onClick={resetDraw} title="Clears your drawing here only. Nothing has been sent to REAPER yet — once you Apply, use Ctrl+Z in REAPER to undo." className="text-[10px] text-zinc-500 hover:text-zinc-300">reset drawing</button>
                 <button onClick={stopDraw} className="rounded border border-zinc-700 px-2 py-0.5 text-[10px] text-zinc-300 hover:border-zinc-600">done</button>
               </>
             : <>
@@ -354,11 +354,15 @@ function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear
       <div className="relative mt-1 h-3 text-[10px] text-zinc-500">
         {ticks.map(f => <span key={f} className="absolute -translate-x-1/2" style={{ left: (xOf(f) / W * 100) + '%' }}>{f >= 1000 ? (f / 1000) + 'k' : f}</span>)}
       </div>
+      {/* Spell out the axis: left-to-right is pitch (not time), so an EQ here shapes the whole track's tone. */}
+      <div className="mt-0.5 flex justify-between text-[9px] uppercase tracking-wider text-zinc-600">
+        <span>← bass</span><span>mids</span><span>treble →</span>
+      </div>
       {drawOn
         ? <div className="mt-2 text-[11px] leading-relaxed">
             {moves.length
               ? <>
-                  <p><span className="font-medium text-zinc-200">EQ to get this shape on {primary.track}:</span> {topMoves.map((m, i) => <span key={m.fc}><span style={{ color: m.db < 0 ? '#f87171' : '#4ade80' }}>{describeMove(m)}</span>{i < topMoves.length - 1 ? '; ' : ''}</span>)}.</p>
+                  <p><span className="font-medium text-zinc-200">EQ to shape all of {primary.track}:</span> {topMoves.map((m, i) => <span key={m.fc}><span style={{ color: m.db < 0 ? '#f87171' : '#4ade80' }}>{describeMove(m)}</span>{i < topMoves.length - 1 ? '; ' : ''}</span>)}. <span className="text-zinc-500">Shapes the whole track’s tone, not one moment.</span></p>
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                     <button onClick={onApply} disabled={!canApply || apply.phase === 'sending' || apply.phase === 'waiting'}
                       className="rounded bg-amber-500 px-2.5 py-1 text-[11px] font-semibold text-zinc-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50">
@@ -370,13 +374,13 @@ function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear
                         ? <span className="flex items-center gap-1.5 text-green-400"><CheckCircle2 size={13} /> {apply.message} Hear it on {primary.track}, tweak it, or press Ctrl+Z in REAPER to undo.</span>
                         : apply.phase === 'error'
                           ? <span className="flex items-center gap-1.5 text-amber-300"><AlertTriangle size={13} /> {apply.message}</span>
-                          : <span className="text-zinc-500">Builds one “Cadenzai EQ” on this track — only when you click, undoable in REAPER.</span>}
+                          : <span className="text-zinc-500">Builds one “Cadenzai EQ” on {primary.track} (the whole track) — writes only when you click; Ctrl+Z in REAPER undoes it. “reset drawing” just clears this sketch.</span>}
                   </div>
                   {!primary.trackId && <p className="mt-1 text-zinc-500">Re-analyze this track from REAPER to enable one-click apply.</p>}
                 </>
-              : <p className="text-zinc-500">Drag across the graph to draw the tone you want — pull a region down to thin it, push it up to bring it out. Cadenzai reads off the exact EQ moves, and only writes to REAPER when you click Apply.</p>}
+              : <p className="text-zinc-500">Left is bass, right is treble — you’re drawing the tone of your <span className="text-zinc-300">whole {primary.track}</span>, not a spot in the song. Drag a region down to thin it, up to bring it out. Nothing reaches REAPER until you click Apply.</p>}
           </div>
-        : <p className="mt-2 text-[11px] leading-relaxed">{readout ?? <span className="text-zinc-500">{history.length >= 2 ? 'Red bands are where both tracks are loud — where they mask each other. Click a spot to see which is louder and which to carve.' : 'Your track’s tone. Click any spot to read its level, or draw the tone you want to see the EQ that gets there.'}</span>}</p>}
+        : <p className="mt-2 text-[11px] leading-relaxed">{readout ?? <span className="text-zinc-500">{history.length >= 2 ? 'Left is bass, right is treble (not time) — each track’s tone across the whole track. Red bands are where both are loud and mask each other. Click a spot to see which is louder and which to carve.' : 'Left is bass, right is treble (not time) — this is the tone of your whole track. Click any spot to read its level, or draw the tone you want to see the EQ that gets there.'}</span>}</p>}
     </div>
   );
 }
