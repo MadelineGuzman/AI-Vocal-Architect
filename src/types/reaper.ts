@@ -35,6 +35,17 @@ export interface EqResult {
   updatedAt: number;
 }
 
+// Describe-to-effect: add a known stock effect on the selected track.
+export interface ApplyFxResponse { requestId: string }
+export interface FxResult {
+  requestId: string;
+  status: 'applied' | 'error';
+  message: string;
+  fxName: string;
+  trackName: string;
+  updatedAt: number;
+}
+
 export interface LevelMetrics {
   samplePeakDbfs?: number; rmsDbfs?: number; crestDb?: number; activeVariationDb?: number;
   activeWindows: number; samplesAtFullScale: number; sampleCount: number; silent: boolean;

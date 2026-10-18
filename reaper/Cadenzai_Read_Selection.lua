@@ -16,6 +16,8 @@ local request_file = directory .. '/request.json'
 local cursor_file = directory .. '/cursor.json'
 local eq_request_file = directory .. '/eq-request.json'
 local eq_result_file = directory .. '/eq-result.json'
+local fx_request_file = directory .. '/fx-request.json'
+local fx_result_file = directory .. '/fx-result.json'
 local json = dofile(script_dir .. 'lib/json.lua')
 local metrics = dofile(script_dir .. 'lib/levels.lua')
 local analyze = dofile(script_dir .. 'lib/analyze.lua')
@@ -28,6 +30,7 @@ local last_content = nil
 local last_handled = nil
 local last_cursor = nil
 local last_eq = nil
+local last_fx = nil
 
 -- Read the single approved request file. Only a correlation id is extracted;
 -- no paths, commands, or executable data are ever read from it.
@@ -143,6 +146,55 @@ local function apply_eq(req)
   end
 end
 
+-- Describe-to-effect: add one whitelisted stock effect to a track. Only names
+-- from this fixed allow-list are ever acted on.
+local FX_ALLOWED = { ReaDelay = true, ReaVerbate = true, ReaComp = true }
+
+local function write_fx_result(id, status, message, fx_name, track_name)
+  local payload = json.encode({ version = 1, kind = 'apply-effect-result', requestId = id, status = status,
+    message = tostring(message), fxName = fx_name or '', trackName = track_name or '', updatedAt = os.time() * 1000 })
+  local file = io.open(fx_result_file, 'wb')
+  if file then file:write(payload); file:close() end
+end
+
+local function read_fx_request()
+  local file = io.open(fx_request_file, 'rb')
+  if not file then return nil end
+  local content = file:read(4096)
+  file:close()
+  if not content or not content:find('"kind":"apply-effect"', 1, true) then return nil end
+  local id = content:match('"requestId":"([%w%-]+)"')
+  if not id or #id < 8 or #id > 128 then return nil end
+  local track_id = content:match('"trackId":"([%w%-{}]+)"')
+  if not track_id then return nil end
+  local fx = content:match('"fx":"(%a+)"')
+  if not fx or not FX_ALLOWED[fx] then return nil end
+  local stamp = content:match('"requestedAt":(%d+)')
+  if stamp and math.abs(os.time() * 1000 - tonumber(stamp)) > 20000 then return nil end
+  return { id = id, trackId = track_id, fx = fx }
+end
+
+-- Producer-directed write: add ONE allow-listed stock effect on the selected
+-- track, in a single undo step. Only changes the project on an explicit click,
+-- adds nothing but that one effect, and is reversible with undo in REAPER.
+local function apply_fx(req)
+  if not FX_ALLOWED[req.fx] then write_fx_result(req.id, 'error', 'That effect is not available.', '', ''); return end
+  local track = find_track_by_guid(req.trackId)
+  if not track then
+    write_fx_result(req.id, 'error', 'Could not find the selected track. Select it in REAPER, then try again.', req.fx, '')
+    return
+  end
+  local _, track_name = reaper.GetTrackName(track, '')
+  reaper.Undo_BeginBlock2(0)
+  local ok, err = pcall(function()
+    local fx = reaper.TrackFX_AddByName(track, req.fx, false, -1)
+    if fx < 0 then error(req.fx .. ' is not available in this REAPER install.') end
+  end)
+  reaper.Undo_EndBlock2(0, 'Cadenzai: add ' .. req.fx, -1)
+  if ok then write_fx_result(req.id, 'applied', 'Added ' .. req.fx .. ' to the track.', req.fx, track_name)
+  else write_fx_result(req.id, 'error', err, req.fx, track_name) end
+end
+
 local function quote(value)
   return '"' .. tostring(value):gsub('[%z\1-\31\\"]', function(c)
     return string.format('\\u%04x', string.byte(c))
@@ -219,6 +271,14 @@ local function tick()
       os.remove(eq_request_file)
       local aok, aerr = pcall(apply_eq, eq)
       if not aok then write_eq_result(eq.id, 'error', aerr, '', 0) end
+    end
+    -- Describe-to-effect: add one allow-listed stock effect on explicit request.
+    local fx = read_fx_request()
+    if fx and fx.id ~= last_fx then
+      last_fx = fx.id
+      os.remove(fx_request_file)
+      local fok, ferr = pcall(apply_fx, fx)
+      if not fok then write_fx_result(fx.id, 'error', ferr, '', '') end
     end
     -- One analysis at a time; a new request id starts a read-only measurement
     -- of whatever is selected in REAPER at this moment.

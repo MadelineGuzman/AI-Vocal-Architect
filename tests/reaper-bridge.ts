@@ -99,6 +99,16 @@ try {
     assert.equal(eqResult.requestId, 'eq-test-00000001');
     assert.equal(eqResult.bandCount, 2);
     console.log(applyLines[1]);
+
+    // The continuous bridge also adds a producer-directed stock effect on request.
+    const applyFx = spawnSync('lua', ['tests/reaper-bridge-apply-fx.lua'], { encoding: 'utf8' });
+    assert.equal(applyFx.status, 0, applyFx.stderr);
+    const fxLines = applyFx.stdout.trim().split(/\r?\n/);
+    const fxResult = JSON.parse(fxLines[0]) as { status: string; requestId: string; fxName: string };
+    assert.equal(fxResult.status, 'applied');
+    assert.equal(fxResult.requestId, 'fx-test-00000001');
+    assert.equal(fxResult.fxName, 'ReaDelay');
+    console.log(fxLines[1]);
   }
   console.log('REAPER snapshot, expiry, recovery, size, schema, Unicode and HTTP origin tests passed.');
 } finally { await rm(folder, { recursive: true, force: true }); }

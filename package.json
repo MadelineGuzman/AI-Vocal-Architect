@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit --incremental false",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "test:reaper": "tsx tests/reaper-bridge.ts && tsx tests/reaper-request.ts",
+    "test:reaper": "tsx tests/reaper-bridge.ts && tsx tests/reaper-request.ts && tsx tests/describe-effect.ts",
     "test:levels": "tsx tests/reaper-levels.ts"
   },
   "dependencies": {

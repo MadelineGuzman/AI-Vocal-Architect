@@ -1,6 +1,6 @@
 import { readLevelReport } from './server/reaperLevels';
 import { createReaperReader, localRequestOnly } from './server/reaper';
-import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, readEqResult } from './server/reaperRequest';
+import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, readEqResult, createApplyFxHandler, readFxResult } from './server/reaperRequest';
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -43,6 +43,14 @@ async function startServer() {
   app.get('/api/reaper/eq-result', async (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.json({ result: await readEqResult() });
+  });
+
+  // Describe-to-effect: add one whitelisted stock effect to the selected track,
+  // only on an explicit click, reversible with undo in REAPER.
+  app.post('/api/reaper/apply-fx', createApplyFxHandler({ readConnection: readReaper }));
+  app.get('/api/reaper/fx-result', async (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ result: await readFxResult() });
   });
 
   // Set up GenAI Client (server-side only)

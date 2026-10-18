@@ -192,3 +192,64 @@ export async function readEqResult(filename = eqResultPath(), now = Date.now()):
     } finally { await file.close(); }
   } catch { return null; }
 }
+
+// --- Describe-to-effect (producer-directed, add a known stock effect) --------
+// Same approved-write pattern as the EQ: an explicit click asks the bridge to
+// add ONE whitelisted REAPER stock effect to the selected track, in one undo
+// step. The request carries only a track GUID and a plugin name from a fixed
+// allow-list — never arbitrary FX, paths, Lua, or parameters.
+export const ALLOWED_FX = ['ReaDelay', 'ReaVerbate', 'ReaComp'] as const;
+export type AllowedFx = typeof ALLOWED_FX[number];
+const isAllowedFx = (x: unknown): x is AllowedFx => typeof x === 'string' && (ALLOWED_FX as readonly string[]).includes(x);
+
+export function fxRequestPath() { return path.join(path.dirname(bridgePath()), 'fx-request.json'); }
+export function fxResultPath() { return path.join(path.dirname(bridgePath()), 'fx-result.json'); }
+
+export async function writeFxRequest(id: string, trackId: string, fx: string, now = Date.now(), filename = fxRequestPath()): Promise<void> {
+  if (!isRequestId(id)) throw new Error('Invalid request id');
+  if (!isTrackId(trackId)) throw new Error('Invalid track id');
+  if (!isAllowedFx(fx)) throw new Error('Effect not allowed');
+  const body = JSON.stringify({ version: 1, kind: 'apply-effect', requestId: id, trackId, fx, requestedAt: now });
+  await writeFile(filename, body, { encoding: 'utf8' });
+}
+
+export function createApplyFxHandler(deps: { readConnection: () => Promise<{ status: string }>; fxFile?: string; now?: () => number }) {
+  const fxFile = deps.fxFile ?? fxRequestPath();
+  const now = deps.now ?? Date.now;
+  return async (req: Request, res: Response): Promise<void> => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const body = req.body as { trackId?: unknown; fx?: unknown } | undefined;
+      const trackId = typeof body?.trackId === 'string' ? body.trackId : '';
+      if (!isTrackId(trackId)) { res.status(400).json({ error: 'Invalid track.' }); return; }
+      if (!isAllowedFx(body?.fx)) { res.status(400).json({ error: 'That effect is not available.' }); return; }
+      const connection = await deps.readConnection();
+      if (connection.status !== 'connected') { res.status(409).json({ error: 'REAPER is not connected. Start the Cadenzai bridge, then try again.' }); return; }
+      const requestId = newRequestId();
+      await writeFxRequest(requestId, trackId, body.fx, now(), fxFile);
+      res.json({ requestId });
+    } catch {
+      res.status(500).json({ error: 'The effect could not be sent to REAPER.' });
+    }
+  };
+}
+
+export interface FxResult { requestId: string; status: 'applied' | 'error'; message: string; fxName: string; trackName: string; updatedAt: number }
+
+export async function readFxResult(filename = fxResultPath(), now = Date.now()): Promise<FxResult | null> {
+  try {
+    const file = await open(filename, 'r');
+    try {
+      const buffer = Buffer.alloc(MAX_BYTES + 1);
+      const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
+      if (bytesRead > MAX_BYTES) return null;
+      const raw: unknown = JSON.parse(buffer.subarray(0, bytesRead).toString('utf8'));
+      if (!object(raw) || raw.version !== 1 || raw.kind !== 'apply-effect-result' || !isRequestId(raw.requestId) ||
+          (raw.status !== 'applied' && raw.status !== 'error') || typeof raw.message !== 'string' || raw.message.length > 512 ||
+          typeof raw.fxName !== 'string' || raw.fxName.length > 64 ||
+          typeof raw.trackName !== 'string' || raw.trackName.length > 512 ||
+          !finiteIn(raw.updatedAt, 1, now + 5000)) return null;
+      return { requestId: raw.requestId, status: raw.status, message: raw.message, fxName: raw.fxName, trackName: raw.trackName, updatedAt: raw.updatedAt };
+    } finally { await file.close(); }
+  } catch { return null; }
+}

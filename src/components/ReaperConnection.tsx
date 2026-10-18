@@ -1,4 +1,5 @@
 import { ReaperLevels } from './ReaperLevels';
+import { DescribeEffect } from './DescribeEffect';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Cable } from 'lucide-react';
 import type { ReaperState, AnalyzeRequestResponse } from '../types/reaper';
@@ -131,6 +132,10 @@ export function ReaperConnection() {
     ? (snapshot.tracks.length === 0 ? 'No track selected' : snapshot.tracks.length === 1 ? (snapshot.tracks[0].name || 'Unnamed track') : snapshot.tracks.length + ' tracks selected')
     : '';
 
+  // Describe-to-effect targets the one selected (non-master) track.
+  const selectable = (connected ? snapshot?.tracks.filter(t => !t.isMaster) : []) ?? [];
+  const effectTrack = selectable.length === 1 ? { id: selectable[0].id, name: selectable[0].name || 'Unnamed track' } : null;
+
   return (
     <section aria-label="REAPER analysis" className="flex flex-1 flex-col overflow-hidden bg-zinc-950">
       {/* Slim always-visible status strip. */}
@@ -152,6 +157,7 @@ export function ReaperConnection() {
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl p-6">
           <ReaperLevels state={state} analyze={analyze} spectra={spectra} onClearSpectra={() => setSpectra([])} />
+          {connected && <div className="mt-6"><DescribeEffect track={effectTrack} /></div>}
         </div>
       </div>
     </section>

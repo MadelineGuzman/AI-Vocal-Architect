@@ -3,7 +3,7 @@ import express from 'express';
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, readPendingRequest, writeAnalyzeRequest, writeEqRequest, readEqResult, sanitizeBands, PENDING_REQUEST_MS } from '../server/reaperRequest';
+import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, createApplyFxHandler, readPendingRequest, writeAnalyzeRequest, writeEqRequest, readEqResult, writeFxRequest, readFxResult, sanitizeBands, PENDING_REQUEST_MS } from '../server/reaperRequest';
 import { localRequestOnly } from '../server/reaper';
 
 const folder = await mkdtemp(path.join(os.tmpdir(), 'cadenzai-request-test-'));
@@ -152,6 +152,47 @@ try {
     await new Promise<void>((resolve, reject) => eserver.close(error => error ? reject(error) : resolve()));
   }
   console.log('REAPER apply-EQ channel: band sanitize, module round-trip, validation, disconnected and origin guards passed.');
+
+  // --- describe-to-effect: apply-fx request/result module round trip ---
+  const fxFile = path.join(folder, 'fx-request.json');
+  await writeFxRequest('fx-abc-123', '{TRK-1}', 'ReaDelay', 9000, fxFile);
+  const fxRaw = JSON.parse(await readFile(fxFile, 'utf8')) as { kind: string; fx: string; trackId: string };
+  assert.equal(fxRaw.kind, 'apply-effect');
+  assert.equal(fxRaw.fx, 'ReaDelay');
+  assert.equal(fxRaw.trackId, '{TRK-1}');
+  await assert.rejects(() => writeFxRequest('fx-abc-123', '{TRK-1}', 'EvilPlugin', 1, fxFile), 'an effect outside the allow-list is never written');
+  const fxResultFile = path.join(folder, 'fx-result.json');
+  assert.equal(await readFxResult(fxResultFile), null, 'missing result reads as none');
+  await writeFile(fxResultFile, JSON.stringify({ version: 1, kind: 'apply-effect-result', requestId: 'fx-abc-123', status: 'applied', message: 'ok', fxName: 'ReaDelay', trackName: 'Lead', updatedAt: 9000 }));
+  assert.equal((await readFxResult(fxResultFile, 9000))?.fxName, 'ReaDelay');
+
+  // --- POST /api/reaper/apply-fx via a real HTTP boundary ---
+  let fxConn = 'connected';
+  const fapp = express();
+  let fport = 0;
+  fapp.use((req, res, next) => localRequestOnly(fport)(req, res, next));
+  fapp.use(express.json());
+  fapp.post('/api/reaper/apply-fx', createApplyFxHandler({ readConnection: async () => ({ status: fxConn }), fxFile, now: () => 9000 }));
+  const fserver = fapp.listen(0, '127.0.0.1');
+  await new Promise<void>(resolve => fserver.once('listening', resolve));
+  fport = (fserver.address() as { port: number }).port;
+  const furl = 'http://127.0.0.1:' + fport + '/api/reaper/apply-fx';
+  const fhost = '127.0.0.1:' + fport;
+  const fpost = (body: unknown, headers: Record<string, string> = {}) =>
+    fetch(furl, { method: 'POST', headers: { Host: fhost, Origin: 'http://' + fhost, 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await fpost({ trackId: '{TRK}', fx: 'ReaComp' })).status, 200, 'a whitelisted effect is accepted');
+    assert.equal((JSON.parse(await readFile(fxFile, 'utf8')) as { fx: string }).fx, 'ReaComp', 'the request file is written');
+    assert.equal((await fpost({ trackId: '{TRK}', fx: 'EvilPlugin' })).status, 400, 'a non-whitelisted effect is rejected');
+    assert.equal((await fpost({ trackId: 'bad!', fx: 'ReaComp' })).status, 400, 'an invalid track is rejected');
+    fxConn = 'disconnected';
+    assert.equal((await fpost({ trackId: '{TRK}', fx: 'ReaComp' })).status, 409, 'rejected when REAPER is not connected');
+    fxConn = 'connected';
+    assert.equal((await fpost({ trackId: '{TRK}', fx: 'ReaComp' }, { Origin: 'https://untrusted.example' })).status, 403, 'cross-origin rejected');
+  } finally {
+    await new Promise<void>((resolve, reject) => fserver.close(error => error ? reject(error) : resolve()));
+  }
+  console.log('REAPER apply-FX channel: effect allow-list, module round-trip, validation, disconnected and origin guards passed.');
 } finally {
   await rm(folder, { recursive: true, force: true });
 }
