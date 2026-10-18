@@ -1,4 +1,4 @@
-import { useState, type MouseEvent, type ReactNode } from 'react';
+import { useState, useRef, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { Activity, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { ReaperState, LevelMetrics } from '../types/reaper';
 import type { AnalyzeView, SpectrumEntry } from './ReaperConnection';
@@ -142,8 +142,20 @@ function LoudnessWaveform({ envelope, startSeconds, endSeconds }: { envelope: nu
 // highlights where two tracks are both loud — the frequencies where they mask.
 const SPECTRUM_COLORS = ['#22d3ee', '#f472b6', '#a3e635'];
 
+// A drawn-EQ move: a region where the target curve departs from the current one.
+interface EqMove { f0: number; f1: number; fc: number; db: number; bi: number }
+
+function describeMove(m: EqMove): string {
+  const verb = m.db < 0 ? 'cut' : 'boost';
+  return `${verb} ${Math.abs(m.db).toFixed(1)} dB around ${m.fc >= 1000 ? (Math.round(m.fc / 100) / 10) + ' kHz' : Math.round(m.fc / 5) * 5 + ' Hz'}`;
+}
+
 function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear: () => void }) {
   const [pick, setPick] = useState<number | null>(null);
+  const [drawOn, setDrawOn] = useState(false);
+  const [target, setTarget] = useState<number[] | null>(null);
+  const drawingRef = useRef(false);
+  const lastBandRef = useRef<number | null>(null);
   if (!history.length) return null;
   const W = 1000, H = 150, padL = 4, padR = 4, padT = 8, padB = 14;
   const fMin = 25;
@@ -158,8 +170,72 @@ function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear
   const atFreq = (spec: { f: number; db: number }[], f: number) => spec.reduce((best, p) => Math.abs(Math.log(p.f / f)) < Math.abs(Math.log(best.f / f)) ? p : best, spec[0]);
   const fmtF = (f: number) => f >= 1000 ? (Math.round(f / 100) / 10) + ' kHz' : Math.round(f / 5) * 5 + ' Hz';
 
+  // Draw-to-EQ targets the primary (most recent) track's tone curve.
+  const primary = history[0];
+  const spec = primary.spectrum;
+  const nearestBand = (f: number) => {
+    let bi = 0, bd = Infinity;
+    for (let i = 0; i < spec.length; i++) { const d = Math.abs(Math.log(spec[i].f / f)); if (d < bd) { bd = d; bi = i; } }
+    return bi;
+  };
+  const freqFromX = (clientX: number, rect: DOMRect) => {
+    const t = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const lx = Math.max(0, Math.min(1, (t * W - padL) / (W - padL - padR)));
+    return fMin * Math.pow(fMax / fMin, lx);
+  };
+  const dbFromY = (clientY: number, rect: DOMRect) => {
+    const svgY = ((clientY - rect.top) / rect.height) * H;
+    const d = yTop - ((svgY - padT) / (H - padT - padB)) * (yTop - yBot);
+    return Math.max(yBot, Math.min(yTop, d));
+  };
+
+  const startDraw = () => { setPick(null); setTarget(spec.map(p => p.db)); setDrawOn(true); };
+  const stopDraw = () => { setDrawOn(false); drawingRef.current = false; lastBandRef.current = null; };
+  const resetDraw = () => { setTarget(spec.map(p => p.db)); };
+
+  const applyAt = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const b = nearestBand(freqFromX(e.clientX, rect));
+    const d = dbFromY(e.clientY, rect);
+    setTarget(prev => {
+      const next = (prev ?? spec.map(p => p.db)).slice();
+      const last = lastBandRef.current;
+      if (last === null || last === b) { next[b] = d; }
+      else { // fill the bands the pointer skipped so a quick drag draws a continuous line
+        const lo = Math.min(last, b), hi = Math.max(last, b);
+        const dLo = last < b ? next[last] : d, dHi = last < b ? d : next[last];
+        for (let i = lo; i <= hi; i++) next[i] = dLo + (dHi - dLo) * ((i - lo) / (hi - lo));
+      }
+      return next;
+    });
+    lastBandRef.current = b;
+  };
+  const onPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => { if (!drawOn) return; drawingRef.current = true; lastBandRef.current = null; e.currentTarget.setPointerCapture?.(e.pointerId); applyAt(e); };
+  const onPointerMove = (e: ReactPointerEvent<SVGSVGElement>) => { if (drawOn && drawingRef.current) applyAt(e); };
+  const endStroke = () => { drawingRef.current = false; lastBandRef.current = null; };
+
+  // Group the drawn target's departures from the current curve into EQ moves.
+  const tgt = drawOn ? (target ?? spec.map(p => p.db)) : null;
+  const moves: EqMove[] = [];
+  if (tgt) {
+    let i = 0;
+    while (i < spec.length) {
+      const sign = (d: number) => d > 1.5 ? 1 : d < -1.5 ? -1 : 0;
+      const s = sign(tgt[i] - spec[i].db);
+      if (s === 0) { i++; continue; }
+      let j = i, peak = i;
+      while (j < spec.length && sign(tgt[j] - spec[j].db) === s) {
+        if (Math.abs(tgt[j] - spec[j].db) > Math.abs(tgt[peak] - spec[peak].db)) peak = j;
+        j++;
+      }
+      moves.push({ f0: spec[i].f, f1: spec[j - 1].f, fc: spec[peak].f, db: tgt[peak] - spec[peak].db, bi: peak });
+      i = j;
+    }
+  }
+  const topMoves = moves.slice().sort((a, b) => Math.abs(b.db) - Math.abs(a.db)).slice(0, 4);
+
   const overlaps: { x0: number; x1: number }[] = [];
-  if (history.length >= 2) {
+  if (history.length >= 2 && !drawOn) {
     const a = history[0].spectrum, b = history[1].spectrum;
     const maxA = Math.max(...a.map(p => p.db)), maxB = Math.max(...b.map(p => p.db));
     const n = Math.min(a.length, b.length);
@@ -174,6 +250,7 @@ function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear
   const ticks = [50, 100, 200, 500, 1000, 2000, 5000, 10000].filter(f => f >= fMin && f <= fMax);
 
   const onPick = (e: MouseEvent<SVGSVGElement>) => {
+    if (drawOn) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const t = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const lx = Math.max(0, Math.min(1, (t * W - padL) / (W - padL - padR)));
@@ -182,7 +259,7 @@ function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear
 
   // "Which is louder here, and which should I carve?" readout for the clicked frequency.
   let readout: ReactNode = null;
-  if (pick !== null) {
+  if (pick !== null && !drawOn) {
     const rows = history.map((h, idx) => ({ track: h.track, db: atFreq(h.spectrum, pick).db, color: SPECTRUM_COLORS[idx] ?? '#a1a1aa' }))
       .filter(r => r.db > -100).sort((x, y) => y.db - x.db);
     if (rows.length >= 2) {
@@ -200,24 +277,53 @@ function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear
 
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between">
-        <p className="text-xs font-medium text-zinc-300">Frequency / tone{history.length >= 2 ? ' · overlap' : ''}</p>
-        {history.length >= 2 && <button onClick={onClear} className="text-[10px] text-zinc-500 hover:text-zinc-300">clear</button>}
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-zinc-300">Frequency / tone{drawOn ? ' · draw the shape you want' : history.length >= 2 ? ' · overlap' : ''}</p>
+        <div className="flex items-center gap-2">
+          {drawOn
+            ? <>
+                <button onClick={resetDraw} className="text-[10px] text-zinc-500 hover:text-zinc-300">reset</button>
+                <button onClick={stopDraw} className="rounded border border-zinc-700 px-2 py-0.5 text-[10px] text-zinc-300 hover:border-zinc-600">done</button>
+              </>
+            : <>
+                {history.length >= 2 && <button onClick={onClear} className="text-[10px] text-zinc-500 hover:text-zinc-300">clear</button>}
+                <button onClick={startDraw} className="rounded border border-amber-500/40 px-2 py-0.5 text-[10px] font-medium text-amber-300 hover:border-amber-500/70">Draw the tone you want</button>
+              </>}
+        </div>
       </div>
       <div className="relative">
-        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-36 w-full rounded-lg border border-zinc-800 bg-zinc-950" style={{ cursor: 'crosshair' }} onClick={onPick} role="img" aria-label="Frequency tone curves; red bands show where two tracks overlap. Click to compare levels.">
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-36 w-full rounded-lg border border-zinc-800 bg-zinc-950" style={{ cursor: 'crosshair', touchAction: 'none' }}
+          onClick={onPick} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endStroke} onPointerLeave={endStroke}
+          role="img" aria-label={drawOn ? 'Draw a target tone curve by dragging. Cadenzai reads off the EQ moves; it changes nothing.' : 'Frequency tone curves; red bands show where two tracks overlap. Click to compare levels.'}>
           {overlaps.map((o, i) => <rect key={i} x={o.x0} y={padT} width={Math.max(0.5, o.x1 - o.x0)} height={H - padT - padB} fill="#ef4444" opacity={0.14} />)}
           {ticks.map(f => <line key={f} x1={xOf(f)} y1={padT} x2={xOf(f)} y2={H - padB} stroke="#27272a" strokeWidth={0.75} />)}
-          {history.map((h, idx) => <path key={h.id} d={pathOf(h.spectrum)} fill="none" stroke={SPECTRUM_COLORS[idx] ?? '#a1a1aa'} strokeWidth={idx === 0 ? 2.5 : 1.75} opacity={idx === 0 ? 1 : 0.8} />)}
-          {pick !== null && <line x1={xOf(pick)} y1={padT} x2={xOf(pick)} y2={H - padB} stroke="#ffffff" strokeWidth={1} opacity={0.6} />}
+          {history.map((h, idx) => <path key={h.id} d={pathOf(h.spectrum)} fill="none" stroke={SPECTRUM_COLORS[idx] ?? '#a1a1aa'} strokeWidth={idx === 0 ? 2.5 : 1.75} opacity={drawOn && idx !== 0 ? 0.3 : idx === 0 ? 1 : 0.8} />)}
+          {/* The drawn target, and a marker over each main move so the change is visible on the curve. */}
+          {tgt && <path d={pathOf(spec.map((p, i) => ({ f: p.f, db: tgt[i] })))} fill="none" stroke="#f8fafc" strokeWidth={2} strokeDasharray="5 3" opacity={0.95} />}
+          {tgt && topMoves.map(m => {
+            const x = xOf(m.fc), color = m.db < 0 ? '#f87171' : '#4ade80';
+            return <g key={m.fc}><line x1={x} y1={yOf(spec[m.bi].db)} x2={x} y2={yOf(tgt[m.bi])} stroke={color} strokeWidth={2} /><circle cx={x} cy={yOf(tgt[m.bi])} r={3} fill={color} /></g>;
+          })}
+          {pick !== null && !drawOn && <line x1={xOf(pick)} y1={padT} x2={xOf(pick)} y2={H - padB} stroke="#ffffff" strokeWidth={1} opacity={0.6} />}
         </svg>
         {/* Direct labels so it is obvious which curve is which, placed over each curve's peak. */}
-        {history.map((h, idx) => <span key={h.id} className="pointer-events-none absolute whitespace-nowrap rounded bg-zinc-950/70 px-1 text-[10px] font-semibold" style={{ left: `${xOf(peakOf(h.spectrum).f) / W * 100}%`, top: `${4 + idx * 14}px`, transform: 'translateX(-50%)', color: SPECTRUM_COLORS[idx] ?? '#a1a1aa' }}>{h.track}</span>)}
+        {!drawOn && history.map((h, idx) => <span key={h.id} className="pointer-events-none absolute whitespace-nowrap rounded bg-zinc-950/70 px-1 text-[10px] font-semibold" style={{ left: `${xOf(peakOf(h.spectrum).f) / W * 100}%`, top: `${4 + idx * 14}px`, transform: 'translateX(-50%)', color: SPECTRUM_COLORS[idx] ?? '#a1a1aa' }}>{h.track}</span>)}
+        {/* dB labels on the drawn moves. */}
+        {tgt && topMoves.map(m => <span key={m.fc} className="pointer-events-none absolute whitespace-nowrap rounded bg-zinc-950/80 px-1 text-[10px] font-bold" style={{ left: `${xOf(m.fc) / W * 100}%`, top: `${yOf(tgt[m.bi]) / H * 100}%`, transform: 'translate(-50%, -140%)', color: m.db < 0 ? '#f87171' : '#4ade80' }}>{m.db > 0 ? '+' : '−'}{Math.abs(m.db).toFixed(0)}</span>)}
       </div>
       <div className="relative mt-1 h-3 text-[10px] text-zinc-500">
         {ticks.map(f => <span key={f} className="absolute -translate-x-1/2" style={{ left: (xOf(f) / W * 100) + '%' }}>{f >= 1000 ? (f / 1000) + 'k' : f}</span>)}
       </div>
-      <p className="mt-2 text-[11px] leading-relaxed">{readout ?? <span className="text-zinc-500">{history.length >= 2 ? 'Red bands are where both tracks are loud — where they mask each other. Click a spot to see which is louder and which to carve.' : 'Your track’s tone. Click any spot to read its level, then analyze another track to overlay and compare.'}</span>}</p>
+      {drawOn
+        ? <div className="mt-2 text-[11px] leading-relaxed">
+            {moves.length
+              ? <>
+                  <p><span className="font-medium text-zinc-200">EQ to get this shape on {primary.track}:</span> {topMoves.map((m, i) => <span key={m.fc}><span style={{ color: m.db < 0 ? '#f87171' : '#4ade80' }}>{describeMove(m)}</span>{i < topMoves.length - 1 ? '; ' : ''}</span>)}.</p>
+                  <p className="mt-1 text-zinc-500">Dial these into an EQ on this track to match what you drew. Cadenzai hasn’t changed anything — one-click apply in REAPER is the next step.</p>
+                </>
+              : <p className="text-zinc-500">Drag across the graph to draw the tone you want — pull a region down to thin it, push it up to bring it out. Cadenzai reads off the exact EQ moves and never touches your audio.</p>}
+          </div>
+        : <p className="mt-2 text-[11px] leading-relaxed">{readout ?? <span className="text-zinc-500">{history.length >= 2 ? 'Red bands are where both tracks are loud — where they mask each other. Click a spot to see which is louder and which to carve.' : 'Your track’s tone. Click any spot to read its level, or draw the tone you want to see the EQ that gets there.'}</span>}</p>}
     </div>
   );
 }
