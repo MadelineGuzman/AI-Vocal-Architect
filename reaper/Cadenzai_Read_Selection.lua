@@ -18,6 +18,8 @@ local eq_request_file = directory .. '/eq-request.json'
 local eq_result_file = directory .. '/eq-result.json'
 local fx_request_file = directory .. '/fx-request.json'
 local fx_result_file = directory .. '/fx-result.json'
+local auto_request_file = directory .. '/auto-request.json'
+local auto_result_file = directory .. '/auto-result.json'
 local json = dofile(script_dir .. 'lib/json.lua')
 local metrics = dofile(script_dir .. 'lib/levels.lua')
 local analyze = dofile(script_dir .. 'lib/analyze.lua')
@@ -31,6 +33,7 @@ local last_handled = nil
 local last_cursor = nil
 local last_eq = nil
 local last_fx = nil
+local last_auto = nil
 
 -- Read the single approved request file. Only a correlation id is extracted;
 -- no paths, commands, or executable data are ever read from it.
@@ -195,6 +198,80 @@ local function apply_fx(req)
   else write_fx_result(req.id, 'error', err, req.fx, track_name) end
 end
 
+-- Time-selection automation: write a track volume envelope over REAPER's current
+-- time selection. Only these whitelisted moves are ever acted on.
+local AUTO_ALLOWED = { ['volume-swell'] = true, ['volume-fade'] = true }
+
+local function write_auto_result(id, status, message, track_name)
+  local payload = json.encode({ version = 1, kind = 'apply-automation-result', requestId = id, status = status,
+    message = tostring(message), trackName = track_name or '', updatedAt = os.time() * 1000 })
+  local file = io.open(auto_result_file, 'wb')
+  if file then file:write(payload); file:close() end
+end
+
+local function read_auto_request()
+  local file = io.open(auto_request_file, 'rb')
+  if not file then return nil end
+  local content = file:read(4096)
+  file:close()
+  if not content or not content:find('"kind":"apply-automation"', 1, true) then return nil end
+  local id = content:match('"requestId":"([%w%-]+)"')
+  if not id or #id < 8 or #id > 128 then return nil end
+  local track_id = content:match('"trackId":"([%w%-{}]+)"')
+  if not track_id then return nil end
+  local auto = content:match('"auto":"([%w%-]+)"')
+  if not auto or not AUTO_ALLOWED[auto] then return nil end
+  local stamp = content:match('"requestedAt":(%d+)')
+  if stamp and math.abs(os.time() * 1000 - tonumber(stamp)) > 20000 then return nil end
+  return { id = id, trackId = track_id, auto = auto }
+end
+
+-- Producer-directed write: a track volume envelope over the current time
+-- selection, in one undo step. Reads REAPER's live time selection (never guesses
+-- "where"); changes only this one track's volume automation, reversible with undo.
+local function apply_automation(req)
+  if not AUTO_ALLOWED[req.auto] then write_auto_result(req.id, 'error', 'That automation is not available.', ''); return end
+  local track = find_track_by_guid(req.trackId)
+  if not track then
+    write_auto_result(req.id, 'error', 'Could not find the selected track. Select it in REAPER, then try again.', '')
+    return
+  end
+  local start_t, end_t = reaper.GetSet_LoopTimeRange2(0, false, false, 0, 0, false)
+  if not start_t or not end_t or (end_t - start_t) < 0.05 then
+    write_auto_result(req.id, 'error', 'Drag a time selection in REAPER over the part you want, then try again.', '')
+    return
+  end
+  local _, track_name = reaper.GetTrackName(track, '')
+  reaper.Undo_BeginBlock2(0)
+  local ok, err = pcall(function()
+    local env = reaper.GetTrackEnvelopeByName(track, 'Volume')
+    if not env then
+      reaper.SetOnlyTrackSelected(track)
+      reaper.Main_OnCommandEx(40406, 0, 0) -- Track: Toggle track volume envelope visible
+      env = reaper.GetTrackEnvelopeByName(track, 'Volume')
+    end
+    if not env then error('Could not open the track volume envelope.') end
+    local scaling = reaper.GetEnvelopeScalingMode(env)
+    local function val(db) return reaper.ScaleToEnvelopeMode(scaling, 10 ^ (db / 20)) end
+    reaper.DeleteEnvelopePointRange(env, start_t - 0.001, end_t + 0.001)
+    if req.auto == 'volume-swell' then
+      reaper.InsertEnvelopePoint(env, start_t, val(-18), 0, 0, false, true)
+      reaper.InsertEnvelopePoint(env, end_t, val(0), 0, 0, false, true)
+    else
+      reaper.InsertEnvelopePoint(env, start_t, val(0), 0, 0, false, true)
+      reaper.InsertEnvelopePoint(env, end_t, val(-60), 0, 0, false, true)
+    end
+    reaper.Envelope_SortPoints(env)
+  end)
+  reaper.Undo_EndBlock2(0, 'Cadenzai: ' .. (req.auto == 'volume-swell' and 'volume swell' or 'fade out'), -1)
+  if ok then
+    local label = req.auto == 'volume-swell' and 'Wrote a volume swell' or 'Wrote a fade'
+    write_auto_result(req.id, 'applied', string.format('%s over %.1f–%.1f s.', label, start_t, end_t), track_name)
+  else
+    write_auto_result(req.id, 'error', err, track_name)
+  end
+end
+
 local function quote(value)
   return '"' .. tostring(value):gsub('[%z\1-\31\\"]', function(c)
     return string.format('\\u%04x', string.byte(c))
@@ -279,6 +356,14 @@ local function tick()
       os.remove(fx_request_file)
       local fok, ferr = pcall(apply_fx, fx)
       if not fok then write_fx_result(fx.id, 'error', ferr, '', '') end
+    end
+    -- Time-selection automation: write a volume envelope over the selection.
+    local auto = read_auto_request()
+    if auto and auto.id ~= last_auto then
+      last_auto = auto.id
+      os.remove(auto_request_file)
+      local aok, aerr = pcall(apply_automation, auto)
+      if not aok then write_auto_result(auto.id, 'error', aerr, '') end
     end
     -- One analysis at a time; a new request id starts a read-only measurement
     -- of whatever is selected in REAPER at this moment.

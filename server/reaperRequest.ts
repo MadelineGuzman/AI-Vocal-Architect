@@ -253,3 +253,63 @@ export async function readFxResult(filename = fxResultPath(), now = Date.now()):
     } finally { await file.close(); }
   } catch { return null; }
 }
+
+// --- Time-selection automation (producer-directed, over the REAPER selection) -
+// Same approved-write pattern. An explicit click asks the bridge to write a
+// track volume envelope over REAPER's current time selection — a whitelisted
+// move only (swell up, or fade out). The bridge reads the live time selection;
+// the request carries only a track GUID and the move name.
+export const ALLOWED_AUTOMATION = ['volume-swell', 'volume-fade'] as const;
+export type AllowedAutomation = typeof ALLOWED_AUTOMATION[number];
+const isAllowedAutomation = (x: unknown): x is AllowedAutomation => typeof x === 'string' && (ALLOWED_AUTOMATION as readonly string[]).includes(x);
+
+export function automationRequestPath() { return path.join(path.dirname(bridgePath()), 'auto-request.json'); }
+export function automationResultPath() { return path.join(path.dirname(bridgePath()), 'auto-result.json'); }
+
+export async function writeAutomationRequest(id: string, trackId: string, auto: string, now = Date.now(), filename = automationRequestPath()): Promise<void> {
+  if (!isRequestId(id)) throw new Error('Invalid request id');
+  if (!isTrackId(trackId)) throw new Error('Invalid track id');
+  if (!isAllowedAutomation(auto)) throw new Error('Automation not allowed');
+  const body = JSON.stringify({ version: 1, kind: 'apply-automation', requestId: id, trackId, auto, requestedAt: now });
+  await writeFile(filename, body, { encoding: 'utf8' });
+}
+
+export function createApplyAutomationHandler(deps: { readConnection: () => Promise<{ status: string }>; automationFile?: string; now?: () => number }) {
+  const automationFile = deps.automationFile ?? automationRequestPath();
+  const now = deps.now ?? Date.now;
+  return async (req: Request, res: Response): Promise<void> => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const body = req.body as { trackId?: unknown; auto?: unknown } | undefined;
+      const trackId = typeof body?.trackId === 'string' ? body.trackId : '';
+      if (!isTrackId(trackId)) { res.status(400).json({ error: 'Invalid track.' }); return; }
+      if (!isAllowedAutomation(body?.auto)) { res.status(400).json({ error: 'That automation is not available.' }); return; }
+      const connection = await deps.readConnection();
+      if (connection.status !== 'connected') { res.status(409).json({ error: 'REAPER is not connected. Start the Cadenzai bridge, then try again.' }); return; }
+      const requestId = newRequestId();
+      await writeAutomationRequest(requestId, trackId, body.auto, now(), automationFile);
+      res.json({ requestId });
+    } catch {
+      res.status(500).json({ error: 'The automation could not be sent to REAPER.' });
+    }
+  };
+}
+
+export interface AutomationResult { requestId: string; status: 'applied' | 'error'; message: string; trackName: string; updatedAt: number }
+
+export async function readAutomationResult(filename = automationResultPath(), now = Date.now()): Promise<AutomationResult | null> {
+  try {
+    const file = await open(filename, 'r');
+    try {
+      const buffer = Buffer.alloc(MAX_BYTES + 1);
+      const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
+      if (bytesRead > MAX_BYTES) return null;
+      const raw: unknown = JSON.parse(buffer.subarray(0, bytesRead).toString('utf8'));
+      if (!object(raw) || raw.version !== 1 || raw.kind !== 'apply-automation-result' || !isRequestId(raw.requestId) ||
+          (raw.status !== 'applied' && raw.status !== 'error') || typeof raw.message !== 'string' || raw.message.length > 512 ||
+          typeof raw.trackName !== 'string' || raw.trackName.length > 512 ||
+          !finiteIn(raw.updatedAt, 1, now + 5000)) return null;
+      return { requestId: raw.requestId, status: raw.status, message: raw.message, trackName: raw.trackName, updatedAt: raw.updatedAt };
+    } finally { await file.close(); }
+  } catch { return null; }
+}

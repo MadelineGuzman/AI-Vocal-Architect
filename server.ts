@@ -1,6 +1,6 @@
 import { readLevelReport } from './server/reaperLevels';
 import { createReaperReader, localRequestOnly } from './server/reaper';
-import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, readEqResult, createApplyFxHandler, readFxResult } from './server/reaperRequest';
+import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, readEqResult, createApplyFxHandler, readFxResult, createApplyAutomationHandler, readAutomationResult } from './server/reaperRequest';
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -51,6 +51,14 @@ async function startServer() {
   app.get('/api/reaper/fx-result', async (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.json({ result: await readFxResult() });
+  });
+
+  // Time-selection automation: write a volume envelope over REAPER's current
+  // time selection, only on an explicit click, reversible with undo.
+  app.post('/api/reaper/apply-automation', createApplyAutomationHandler({ readConnection: readReaper }));
+  app.get('/api/reaper/automation-result', async (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ result: await readAutomationResult() });
   });
 
   // Set up GenAI Client (server-side only)

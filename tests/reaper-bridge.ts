@@ -109,6 +109,15 @@ try {
     assert.equal(fxResult.requestId, 'fx-test-00000001');
     assert.equal(fxResult.fxName, 'ReaDelay');
     console.log(fxLines[1]);
+
+    // The continuous bridge also writes a producer-directed automation on request.
+    const applyAuto = spawnSync('lua', ['tests/reaper-bridge-apply-automation.lua'], { encoding: 'utf8' });
+    assert.equal(applyAuto.status, 0, applyAuto.stderr);
+    const autoLines = applyAuto.stdout.trim().split(/\r?\n/);
+    const autoResult = JSON.parse(autoLines[0]) as { status: string; requestId: string };
+    assert.equal(autoResult.status, 'applied');
+    assert.equal(autoResult.requestId, 'auto-test-00000001');
+    console.log(autoLines[1]);
   }
   console.log('REAPER snapshot, expiry, recovery, size, schema, Unicode and HTTP origin tests passed.');
 } finally { await rm(folder, { recursive: true, force: true }); }

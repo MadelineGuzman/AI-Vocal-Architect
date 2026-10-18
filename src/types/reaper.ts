@@ -46,6 +46,16 @@ export interface FxResult {
   updatedAt: number;
 }
 
+// Time-selection automation: write a volume envelope over the REAPER selection.
+export interface ApplyAutomationResponse { requestId: string }
+export interface AutomationResult {
+  requestId: string;
+  status: 'applied' | 'error';
+  message: string;
+  trackName: string;
+  updatedAt: number;
+}
+
 export interface LevelMetrics {
   samplePeakDbfs?: number; rmsDbfs?: number; crestDb?: number; activeVariationDb?: number;
   activeWindows: number; samplesAtFullScale: number; sampleCount: number; silent: boolean;

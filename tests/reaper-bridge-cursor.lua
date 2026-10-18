@@ -16,7 +16,7 @@ io.open = function(file, mode)
       if removed then return nil end
       return { read = function() return CURSOR end, close = function() return true end }
     end
-    assert(file == '/test-only/Cadenzai/reaper-bridge/request.json' or file == '/test-only/Cadenzai/reaper-bridge/eq-request.json' or file == '/test-only/Cadenzai/reaper-bridge/fx-request.json'); return nil
+    assert(file == '/test-only/Cadenzai/reaper-bridge/request.json' or file == '/test-only/Cadenzai/reaper-bridge/eq-request.json' or file == '/test-only/Cadenzai/reaper-bridge/fx-request.json' or file == '/test-only/Cadenzai/reaper-bridge/auto-request.json'); return nil
   end
   assert(file == '/test-only/Cadenzai/reaper-bridge/state.json' and mode == 'wb')
   return { write = function(_, s) state_out = s; return true end, close = function() return true end }

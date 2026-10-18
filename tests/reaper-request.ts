@@ -3,7 +3,7 @@ import express from 'express';
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, createApplyFxHandler, readPendingRequest, writeAnalyzeRequest, writeEqRequest, readEqResult, writeFxRequest, readFxResult, sanitizeBands, PENDING_REQUEST_MS } from '../server/reaperRequest';
+import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, createApplyFxHandler, createApplyAutomationHandler, readPendingRequest, writeAnalyzeRequest, writeEqRequest, readEqResult, writeFxRequest, readFxResult, writeAutomationRequest, readAutomationResult, sanitizeBands, PENDING_REQUEST_MS } from '../server/reaperRequest';
 import { localRequestOnly } from '../server/reaper';
 
 const folder = await mkdtemp(path.join(os.tmpdir(), 'cadenzai-request-test-'));
@@ -193,6 +193,47 @@ try {
     await new Promise<void>((resolve, reject) => fserver.close(error => error ? reject(error) : resolve()));
   }
   console.log('REAPER apply-FX channel: effect allow-list, module round-trip, validation, disconnected and origin guards passed.');
+
+  // --- time-selection automation: apply-automation request/result round trip ---
+  const autoFile = path.join(folder, 'auto-request.json');
+  await writeAutomationRequest('auto-abc-123', '{TRK-1}', 'volume-swell', 9500, autoFile);
+  const autoRaw = JSON.parse(await readFile(autoFile, 'utf8')) as { kind: string; auto: string; trackId: string };
+  assert.equal(autoRaw.kind, 'apply-automation');
+  assert.equal(autoRaw.auto, 'volume-swell');
+  assert.equal(autoRaw.trackId, '{TRK-1}');
+  await assert.rejects(() => writeAutomationRequest('auto-abc-123', '{TRK-1}', 'delete-everything', 1, autoFile), 'an automation outside the allow-list is never written');
+  const autoResultFile = path.join(folder, 'auto-result.json');
+  assert.equal(await readAutomationResult(autoResultFile), null, 'missing result reads as none');
+  await writeFile(autoResultFile, JSON.stringify({ version: 1, kind: 'apply-automation-result', requestId: 'auto-abc-123', status: 'applied', message: 'ok', trackName: 'Lead', updatedAt: 9500 }));
+  assert.equal((await readAutomationResult(autoResultFile, 9500))?.status, 'applied');
+
+  // --- POST /api/reaper/apply-automation via a real HTTP boundary ---
+  let autoConn = 'connected';
+  const aapp = express();
+  let aport = 0;
+  aapp.use((req, res, next) => localRequestOnly(aport)(req, res, next));
+  aapp.use(express.json());
+  aapp.post('/api/reaper/apply-automation', createApplyAutomationHandler({ readConnection: async () => ({ status: autoConn }), automationFile: autoFile, now: () => 9500 }));
+  const aserver = aapp.listen(0, '127.0.0.1');
+  await new Promise<void>(resolve => aserver.once('listening', resolve));
+  aport = (aserver.address() as { port: number }).port;
+  const aurl = 'http://127.0.0.1:' + aport + '/api/reaper/apply-automation';
+  const ahost = '127.0.0.1:' + aport;
+  const apost = (body: unknown, headers: Record<string, string> = {}) =>
+    fetch(aurl, { method: 'POST', headers: { Host: ahost, Origin: 'http://' + ahost, 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await apost({ trackId: '{TRK}', auto: 'volume-fade' })).status, 200, 'a whitelisted automation is accepted');
+    assert.equal((JSON.parse(await readFile(autoFile, 'utf8')) as { auto: string }).auto, 'volume-fade', 'the request file is written');
+    assert.equal((await apost({ trackId: '{TRK}', auto: 'nuke-it' })).status, 400, 'a non-whitelisted automation is rejected');
+    assert.equal((await apost({ trackId: 'bad!', auto: 'volume-fade' })).status, 400, 'an invalid track is rejected');
+    autoConn = 'disconnected';
+    assert.equal((await apost({ trackId: '{TRK}', auto: 'volume-fade' })).status, 409, 'rejected when REAPER is not connected');
+    autoConn = 'connected';
+    assert.equal((await apost({ trackId: '{TRK}', auto: 'volume-fade' }, { Origin: 'https://untrusted.example' })).status, 403, 'cross-origin rejected');
+  } finally {
+    await new Promise<void>((resolve, reject) => aserver.close(error => error ? reject(error) : resolve()));
+  }
+  console.log('REAPER apply-automation channel: move allow-list, module round-trip, validation, disconnected and origin guards passed.');
 } finally {
   await rm(folder, { recursive: true, force: true });
 }

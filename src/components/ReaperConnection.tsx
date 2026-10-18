@@ -1,5 +1,6 @@
 import { ReaperLevels } from './ReaperLevels';
 import { DescribeEffect } from './DescribeEffect';
+import { AutomateSelection } from './AutomateSelection';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Cable } from 'lucide-react';
 import type { ReaperState, AnalyzeRequestResponse } from '../types/reaper';
@@ -157,7 +158,7 @@ export function ReaperConnection() {
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl p-6">
           <ReaperLevels state={state} analyze={analyze} spectra={spectra} onClearSpectra={() => setSpectra([])} />
-          {connected && <div className="mt-6"><DescribeEffect track={effectTrack} /></div>}
+          {connected && <div className="mt-6 grid gap-4 lg:grid-cols-2"><DescribeEffect track={effectTrack} /><AutomateSelection track={effectTrack} /></div>}
         </div>
       </div>
     </section>
