@@ -35,6 +35,8 @@ try {
   assert.throws(() => validateSnapshot({ ...sample, tracks: [sample.tracks[0], sample.tracks[0]] }, now));
   assert.throws(() => validateSnapshot({ ...sample, tracks: [{ ...sample.tracks[0], name: {} }] }, now));
   assert.equal('privatePath' in validateSnapshot({ ...sample, privatePath: 'secret' }, now), false);
+  assert.throws(() => validateSnapshot({ ...sample, transport: { playing: 'x', recording: false, looping: false } }, now), 'invalid transport rejected');
+  assert.equal(validateSnapshot({ ...sample, transport: { playing: true, recording: false, looping: true } }, now).transport?.looping, true);
   now += 5000;
   await writeFile(filename, 'x'.repeat(131073));
   assert.equal((await reader()).status, 'error');
@@ -72,6 +74,7 @@ try {
     const lines = lua.stdout.trim().split(/\r?\n/);
     const escaped = JSON.parse(lines[0]);
     assert.equal(escaped.tracks[0].name, 'Vocal "lead"\nBack\\line — Café');
+    assert.ok(escaped.transport && typeof escaped.transport.looping === 'boolean', 'the Lua bridge publishes transport state');
     validateSnapshot(escaped, escaped.updatedAt);
     console.log(lines[1]);
 

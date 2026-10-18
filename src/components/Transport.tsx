@@ -16,7 +16,7 @@ const BUTTONS: { action: Action; label: string; Icon: typeof Play; className?: s
   { action: 'toggle-loop', label: 'Loop the time selection on/off', Icon: Repeat },
 ];
 
-export function Transport({ connected }: { connected: boolean }) {
+export function Transport({ connected, transport }: { connected: boolean; transport?: { playing: boolean; recording: boolean; looping: boolean } }) {
   const [flash, setFlash] = useState<Action | null>(null);
   const [error, setError] = useState(false);
   const [armed, setArmed] = useState(false); // two-tap confirm for delete last take
@@ -52,19 +52,37 @@ export function Transport({ connected }: { connected: boolean }) {
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
       <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Transport</span>
       <div className="flex items-center gap-1">
-        {BUTTONS.map(({ action, label, Icon, className }) => (
-          <button
-            key={action}
-            onClick={() => send(action)}
-            disabled={!connected}
-            title={label}
-            aria-label={label}
-            className={`flex h-8 w-8 items-center justify-center rounded-md border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${flash === action ? 'border-amber-500 bg-amber-500/20 text-amber-200' : 'border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-600 hover:text-zinc-100'} ${className ?? ''}`}
-          >
-            <Icon size={15} fill={action === 'record' || action === 'play' || action === 'stop' ? 'currentColor' : 'none'} />
-          </button>
-        ))}
+        {BUTTONS.map(({ action, label, Icon, className }) => {
+          // Reflect REAPER's live state: light up play / record / loop when on.
+          const on = (action === 'play' && !!transport?.playing) || (action === 'record' && !!transport?.recording) || (action === 'toggle-loop' && !!transport?.looping);
+          const lit = on || flash === action;
+          const litClass = !lit
+            ? `border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-600 hover:text-zinc-100 ${className ?? ''}`
+            : action === 'record'
+              ? 'border-red-500 bg-red-500/25 text-red-300'
+              : 'border-amber-500 bg-amber-500/20 text-amber-200';
+          return (
+            <button
+              key={action}
+              onClick={() => send(action)}
+              disabled={!connected}
+              title={on ? `${label} (on)` : label}
+              aria-label={label}
+              aria-pressed={action === 'toggle-loop' ? !!transport?.looping : undefined}
+              className={`flex h-8 w-8 items-center justify-center rounded-md border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${litClass}`}
+            >
+              <Icon size={15} fill={action === 'record' || action === 'play' || action === 'stop' ? 'currentColor' : 'none'} />
+            </button>
+          );
+        })}
       </div>
+      {/* Plain-language live state, since button colour alone is easy to miss. */}
+      {connected && transport && (transport.recording || transport.playing || transport.looping) &&
+        <span className="flex items-center gap-2 text-[11px]">
+          {transport.recording ? <span className="flex items-center gap-1 font-medium text-red-400"><span className="inline-block h-2 w-2 animate-pulse rounded-full bg-red-500" /> Recording</span>
+            : transport.playing ? <span className="flex items-center gap-1 font-medium text-green-400"><span className="inline-block h-2 w-2 rounded-full bg-green-500" /> Playing</span> : null}
+          {transport.looping && <span className="font-medium text-amber-300">Loop on</span>}
+        </span>}
       {/* Set apart from the play/record cluster, with a two-tap confirm. */}
       <span className="h-5 w-px bg-zinc-800" aria-hidden />
       <button

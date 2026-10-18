@@ -30,10 +30,16 @@ export function validateSnapshot(value: unknown, now = Date.now()): ReaperSnapsh
     ids.add(track.id);
     return { id: track.id, name: track.name, number: Number(track.number), isMaster: track.isMaster };
   });
+  let transport: { playing: boolean; recording: boolean; looping: boolean } | undefined;
+  if (value.transport !== undefined) {
+    const t = value.transport;
+    if (!record(t) || typeof t.playing !== 'boolean' || typeof t.recording !== 'boolean' || typeof t.looping !== 'boolean') throw new Error('Invalid transport');
+    transport = { playing: t.playing, recording: t.recording, looping: t.looping };
+  }
   // Explicit projection prevents unknown fields (including paths) escaping to the browser.
   return { version: 1, sessionId: value.sessionId, sequence: Number(value.sequence), updatedAt: value.updatedAt,
     revision: Number.isSafeInteger(value.revision) ? Number(value.revision) : undefined,
-    project: { sessionId: value.project.sessionId, name: value.project.name, saved: value.project.saved }, tracks };
+    project: { sessionId: value.project.sessionId, name: value.project.name, saved: value.project.saved }, tracks, transport };
 }
 
 export function createReaperReader(filename = bridgePath(), clock = Date.now) {

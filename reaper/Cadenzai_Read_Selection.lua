@@ -341,8 +341,15 @@ local function capture()
         ',"name":' .. quote(track_name) .. ',"number":' .. number .. ',"isMaster":' .. tostring(master) .. '}'
     end
   end
+  -- Live transport state (play / record / loop), guarded so older REAPER or the
+  -- tests (which don't stub these APIs) simply report all-false instead of erroring.
+  local ps = 0
+  pcall(function() ps = reaper.GetPlayState() end)
+  local looping = false
+  pcall(function() looping = reaper.GetSetRepeat(-1) == 1 end)
+  local transport = '{"playing":' .. tostring((ps % 2) >= 1) .. ',"recording":' .. tostring((math.floor(ps / 4) % 2) >= 1) .. ',"looping":' .. tostring(looping) .. '}'
   return '"revision":' .. reaper.GetProjectStateChangeCount(active) .. ',"project":{"sessionId":' .. quote(projects[key]) .. ',"name":' .. quote(name) ..
-    ',"saved":' .. tostring(project_file ~= '') .. '},"tracks":[' .. table.concat(tracks, ',') .. ']'
+    ',"saved":' .. tostring(project_file ~= '') .. '},"tracks":[' .. table.concat(tracks, ',') .. '],"transport":' .. transport
 end
 
 local function tick()

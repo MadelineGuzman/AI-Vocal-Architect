@@ -6,6 +6,8 @@ export interface ReaperSnapshot {
   updatedAt: number;
   project: { sessionId: string; name: string; saved: boolean };
   tracks: Array<{ id: string; name: string; number: number; isMaster: boolean }>;
+  // Live transport state, so the transport bar can show what REAPER is doing.
+  transport?: { playing: boolean; recording: boolean; looping: boolean };
 }
 export interface ReaperState {
   status: 'waiting' | 'connected' | 'disconnected' | 'error';

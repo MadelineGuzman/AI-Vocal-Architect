@@ -158,7 +158,7 @@ export function ReaperConnection() {
       {/* Roomy results dashboard. */}
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl p-6">
-          <div className="mb-5 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3"><Transport connected={connected} /></div>
+          <div className="mb-5 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3"><Transport connected={connected} transport={snapshot?.transport} /></div>
           <ReaperLevels state={state} analyze={analyze} spectra={spectra} onClearSpectra={() => setSpectra([])} />
           {connected && <div className="mt-6 grid gap-4 lg:grid-cols-2"><DescribeEffect track={effectTrack} /><AutomateSelection track={effectTrack} /></div>}
         </div>
