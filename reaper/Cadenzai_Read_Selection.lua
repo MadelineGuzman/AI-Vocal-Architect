@@ -20,6 +20,7 @@ local fx_request_file = directory .. '/fx-request.json'
 local fx_result_file = directory .. '/fx-result.json'
 local auto_request_file = directory .. '/auto-request.json'
 local auto_result_file = directory .. '/auto-result.json'
+local transport_file = directory .. '/transport.json'
 local json = dofile(script_dir .. 'lib/json.lua')
 local metrics = dofile(script_dir .. 'lib/levels.lua')
 local analyze = dofile(script_dir .. 'lib/analyze.lua')
@@ -34,6 +35,7 @@ local last_cursor = nil
 local last_eq = nil
 local last_fx = nil
 local last_auto = nil
+local last_transport = nil
 
 -- Read the single approved request file. Only a correlation id is extracted;
 -- no paths, commands, or executable data are ever read from it.
@@ -272,6 +274,36 @@ local function apply_automation(req)
   end
 end
 
+-- Transport control: a fixed allow-list of REAPER main transport actions. These
+-- are playback/record transport only — no project edits, routing, or FX. The
+-- collaborator (or the producer) can drive the transport from Cadenzai.
+local TRANSPORT = {
+  ['to-start'] = 40630, -- Transport: Go to start of time selection
+  play = 1007,          -- Transport: Play
+  pause = 1008,         -- Transport: Pause
+  stop = 1016,          -- Transport: Stop
+  record = 1013,        -- Transport: Record
+  ['toggle-loop'] = 1068, -- Transport: Toggle repeat
+}
+
+local function read_transport()
+  local file = io.open(transport_file, 'rb')
+  if not file then return nil end
+  local content = file:read(512)
+  file:close()
+  if not content or not content:find('"kind":"transport"', 1, true) then return nil end
+  local action = content:match('"action":"([%w%-]+)"')
+  if not action or not TRANSPORT[action] then return nil end
+  local stamp = content:match('"requestedAt":(%d+)')
+  if stamp and math.abs(os.time() * 1000 - tonumber(stamp)) > 20000 then return nil end
+  return { action = action, stamp = stamp }
+end
+
+local function apply_transport(action)
+  local id = TRANSPORT[action]
+  if id then reaper.Main_OnCommand(id, 0) end
+end
+
 local function quote(value)
   return '"' .. tostring(value):gsub('[%z\1-\31\\"]', function(c)
     return string.format('\\u%04x', string.byte(c))
@@ -364,6 +396,14 @@ local function tick()
       os.remove(auto_request_file)
       local aok, aerr = pcall(apply_automation, auto)
       if not aok then write_auto_result(auto.id, 'error', aerr, '') end
+    end
+    -- Transport control: play / pause / stop / record / loop / to-start. A
+    -- collaborator can drive playback and recording without touching the DAW.
+    local transport = read_transport()
+    if transport and transport.stamp ~= last_transport then
+      last_transport = transport.stamp
+      os.remove(transport_file)
+      pcall(apply_transport, transport.action)
     end
     -- One analysis at a time; a new request id starts a read-only measurement
     -- of whatever is selected in REAPER at this moment.

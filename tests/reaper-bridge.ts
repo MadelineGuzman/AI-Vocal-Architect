@@ -118,6 +118,11 @@ try {
     assert.equal(autoResult.status, 'applied');
     assert.equal(autoResult.requestId, 'auto-test-00000001');
     console.log(autoLines[1]);
+
+    // The continuous bridge also runs allow-listed transport actions on request.
+    const transport = spawnSync('lua', ['tests/reaper-bridge-transport.lua'], { encoding: 'utf8' });
+    assert.equal(transport.status, 0, transport.stderr);
+    console.log(transport.stdout.trim());
   }
   console.log('REAPER snapshot, expiry, recovery, size, schema, Unicode and HTTP origin tests passed.');
 } finally { await rm(folder, { recursive: true, force: true }); }

@@ -3,7 +3,7 @@ import express from 'express';
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, createApplyFxHandler, createApplyAutomationHandler, readPendingRequest, writeAnalyzeRequest, writeEqRequest, readEqResult, writeFxRequest, readFxResult, writeAutomationRequest, readAutomationResult, sanitizeBands, PENDING_REQUEST_MS } from '../server/reaperRequest';
+import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, createApplyFxHandler, createApplyAutomationHandler, createTransportHandler, readPendingRequest, writeAnalyzeRequest, writeEqRequest, readEqResult, writeFxRequest, readFxResult, writeAutomationRequest, readAutomationResult, sanitizeBands, PENDING_REQUEST_MS } from '../server/reaperRequest';
 import { localRequestOnly } from '../server/reaper';
 
 const folder = await mkdtemp(path.join(os.tmpdir(), 'cadenzai-request-test-'));
@@ -234,6 +234,38 @@ try {
     await new Promise<void>((resolve, reject) => aserver.close(error => error ? reject(error) : resolve()));
   }
   console.log('REAPER apply-automation channel: move allow-list, module round-trip, validation, disconnected and origin guards passed.');
+
+  // --- POST /api/reaper/transport (fire-and-forget transport control) ---
+  const transportFile = path.join(folder, 'transport.json');
+  let transConn = 'connected';
+  const tapp = express();
+  let tport = 0;
+  tapp.use((req, res, next) => localRequestOnly(tport)(req, res, next));
+  tapp.use(express.json());
+  tapp.post('/api/reaper/transport', createTransportHandler({ readConnection: async () => ({ status: transConn }), transportFile, now: () => 12000 }));
+  const tserver = tapp.listen(0, '127.0.0.1');
+  await new Promise<void>(resolve => tserver.once('listening', resolve));
+  tport = (tserver.address() as { port: number }).port;
+  const turl = 'http://127.0.0.1:' + tport + '/api/reaper/transport';
+  const thost = '127.0.0.1:' + tport;
+  const tpost = (body: unknown, headers: Record<string, string> = {}) =>
+    fetch(turl, { method: 'POST', headers: { Host: thost, Origin: 'http://' + thost, 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await tpost({ action: 'record' })).status, 200, 'a whitelisted transport action is accepted');
+    const written = JSON.parse(await readFile(transportFile, 'utf8')) as { kind: string; action: string };
+    assert.equal(written.kind, 'transport');
+    assert.equal(written.action, 'record');
+    assert.equal((await tpost({ action: 'play' })).status, 200, 'play is accepted');
+    assert.equal((await tpost({ action: 'delete-everything' })).status, 400, 'a non-whitelisted action is rejected');
+    assert.equal((await tpost({ action: 42 })).status, 400, 'a non-string action is rejected');
+    transConn = 'disconnected';
+    assert.equal((await tpost({ action: 'stop' })).status, 409, 'rejected when REAPER is not connected');
+    transConn = 'connected';
+    assert.equal((await tpost({ action: 'stop' }, { Origin: 'https://untrusted.example' })).status, 403, 'cross-origin rejected');
+  } finally {
+    await new Promise<void>((resolve, reject) => tserver.close(error => error ? reject(error) : resolve()));
+  }
+  console.log('REAPER transport channel: action allow-list, file write, validation, disconnected and origin guards passed.');
 } finally {
   await rm(folder, { recursive: true, force: true });
 }

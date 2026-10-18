@@ -115,6 +115,39 @@ export function createCursorHandler(deps: { readConnection: () => Promise<{ stat
   };
 }
 
+// Transport control: a fixed allow-list of playback/record transport actions,
+// so the producer (or, later, a collaborator) can drive REAPER's transport from
+// Cadenzai. Fire-and-forget like the cursor move — no project edits, no result.
+export const ALLOWED_TRANSPORT = ['to-start', 'play', 'pause', 'stop', 'record', 'toggle-loop'] as const;
+export type TransportAction = typeof ALLOWED_TRANSPORT[number];
+const isAllowedTransport = (x: unknown): x is TransportAction => typeof x === 'string' && (ALLOWED_TRANSPORT as readonly string[]).includes(x);
+
+export function transportPath() { return path.join(path.dirname(bridgePath()), 'transport.json'); }
+
+export async function writeTransportRequest(action: string, now = Date.now(), filename = transportPath()): Promise<void> {
+  if (!isAllowedTransport(action)) throw new Error('Transport action not allowed');
+  const body = JSON.stringify({ version: 1, kind: 'transport', action, requestedAt: now });
+  await writeFile(filename, body, { encoding: 'utf8' });
+}
+
+export function createTransportHandler(deps: { readConnection: () => Promise<{ status: string }>; transportFile?: string; now?: () => number }) {
+  const transportFile = deps.transportFile ?? transportPath();
+  const now = deps.now ?? Date.now;
+  return async (req: Request, res: Response): Promise<void> => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const action = (req.body as { action?: unknown } | undefined)?.action;
+      if (!isAllowedTransport(action)) { res.status(400).json({ error: 'That transport action is not available.' }); return; }
+      const connection = await deps.readConnection();
+      if (connection.status !== 'connected') { res.status(409).json({ error: 'REAPER is not connected.' }); return; }
+      await writeTransportRequest(action, now(), transportFile);
+      res.json({ ok: true });
+    } catch {
+      res.status(500).json({ error: 'The transport request could not be sent.' });
+    }
+  };
+}
+
 // --- Producer-directed EQ write-back (Gate 2) --------------------------------
 // The one place Cadenzai changes the project, and only on an explicit click. The
 // request carries the target track's GUID and a small set of bell bands
