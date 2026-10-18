@@ -22,7 +22,7 @@ export function DescribeEffect({ track }: { track: { id: string; name: string } 
       const res = d.result;
       if (res && res.requestId === id) setApply({ phase: res.status === 'applied' ? 'applied' : 'error', message: res.message });
       else if (Date.now() < deadline) setTimeout(() => pollFx(id, deadline), 500);
-      else setApply({ phase: 'error', message: 'REAPER didn’t confirm the effect. Make sure the Cadenzai bridge is running, then try again.' });
+      else setApply({ phase: 'error', message: 'REAPER didn’t confirm the effect. If you recently updated Cadenzai, re-run Cadenzai_Read_Selection.lua in REAPER (Terminate the old one first), then try again.' });
     }).catch(() => { if (applyIdRef.current === id && Date.now() < deadline) setTimeout(() => pollFx(id, deadline), 500); else setApply({ phase: 'error', message: 'Could not reach the local server.' }); });
   };
 
