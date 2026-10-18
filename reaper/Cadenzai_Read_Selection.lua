@@ -14,6 +14,8 @@ reaper.RecursiveCreateDirectory(directory, 0)
 local filename = directory .. '/state.json'
 local request_file = directory .. '/request.json'
 local cursor_file = directory .. '/cursor.json'
+local eq_request_file = directory .. '/eq-request.json'
+local eq_result_file = directory .. '/eq-result.json'
 local json = dofile(script_dir .. 'lib/json.lua')
 local metrics = dofile(script_dir .. 'lib/levels.lua')
 local analyze = dofile(script_dir .. 'lib/analyze.lua')
@@ -25,6 +27,7 @@ local sequence, last_poll, last_publish = 0, -1, -1
 local last_content = nil
 local last_handled = nil
 local last_cursor = nil
+local last_eq = nil
 
 -- Read the single approved request file. Only a correlation id is extracted;
 -- no paths, commands, or executable data are ever read from it.
@@ -55,6 +58,89 @@ local function read_cursor()
   local requested = tonumber(stamp)
   if requested and math.abs(os.time() * 1000 - requested) > 20000 then return nil end
   return { time = t, stamp = stamp }
+end
+
+local function write_eq_result(id, status, message, track_name, band_count)
+  local payload = json.encode({ version = 1, kind = 'apply-eq-result', requestId = id, status = status,
+    message = tostring(message), trackName = track_name or '', bandCount = band_count or 0, updatedAt = os.time() * 1000 })
+  local file = io.open(eq_result_file, 'wb')
+  if file then file:write(payload); file:close() end
+end
+
+-- Read one approved "apply drawn EQ" request: a target track GUID and a small
+-- set of bell bands. No paths, commands, or executable data are ever read.
+local function read_eq_request()
+  local file = io.open(eq_request_file, 'rb')
+  if not file then return nil end
+  local content = file:read(8192)
+  file:close()
+  if not content or not content:find('"kind":"apply-eq"', 1, true) then return nil end
+  local id = content:match('"requestId":"([%w%-]+)"')
+  if not id or #id < 8 or #id > 128 then return nil end
+  local track_id = content:match('"trackId":"([%w%-{}]+)"')
+  if not track_id then return nil end
+  local stamp = content:match('"requestedAt":(%d+)')
+  if stamp and math.abs(os.time() * 1000 - tonumber(stamp)) > 20000 then return nil end
+  local bands_str = content:match('"bands":%[(.-)%]')
+  if not bands_str then return nil end
+  local bands = {}
+  for obj in bands_str:gmatch('{(.-)}') do
+    local f = tonumber(obj:match('"f":(%-?%d+%.?%d*)'))
+    local g = tonumber(obj:match('"g":(%-?%d+%.?%d*)'))
+    local q = tonumber(obj:match('"q":(%-?%d+%.?%d*)'))
+    if f and g and q and f >= 20 and f <= 24000 and g >= -36 and g <= 36 and q >= 0.1 and q <= 10 then
+      bands[#bands + 1] = { f = f, g = g, q = q }
+      if #bands >= 16 then break end
+    end
+  end
+  if #bands == 0 then return nil end
+  return { id = id, trackId = track_id, bands = bands, stamp = stamp }
+end
+
+-- Find the analyzed track by its GUID in the active project (never the master).
+local function find_track_by_guid(guid)
+  local active = reaper.EnumProjects(-1, '')
+  if not active then return nil end
+  local count = reaper.CountTracks(active)
+  for i = 0, count - 1 do
+    local track = reaper.GetTrack(active, i)
+    if track and reaper.GetTrackGUID(track) == guid then return track end
+  end
+  return nil
+end
+
+-- Producer-directed write: add ONE clearly named ReaEQ with the drawn bells, in
+-- a single undoable step. This is the only place the bridge changes the project,
+-- and only in response to an explicit click in Cadenzai. Undo in REAPER removes
+-- it; nothing else about the project, routing, or other effects is touched.
+local function apply_eq(req)
+  local track = find_track_by_guid(req.trackId)
+  if not track then
+    write_eq_result(req.id, 'error', 'Could not find the analyzed track. Re-analyze it, then apply again.', '', 0)
+    return
+  end
+  local _, track_name = reaper.GetTrackName(track, '')
+  reaper.Undo_BeginBlock2(0)
+  local ok, err = pcall(function()
+    local fx = reaper.TrackFX_AddByName(track, 'ReaEQ', false, -1)
+    if fx < 0 then error('ReaEQ is not available in this REAPER install.') end
+    pcall(function() reaper.TrackFX_SetNamedConfigParm(track, fx, 'renamed_name', 'Cadenzai EQ') end)
+    for i = 1, #req.bands do
+      local b = req.bands[i]
+      local bi = i - 1
+      -- bandtype 2 = "band" (bell); params 0 = frequency, 1 = gain (dB), 2 = Q.
+      reaper.TrackFX_SetEQParam(track, fx, 2, bi, 0, b.f, false)
+      reaper.TrackFX_SetEQParam(track, fx, 2, bi, 1, b.g, false)
+      reaper.TrackFX_SetEQParam(track, fx, 2, bi, 2, b.q, false)
+      pcall(function() reaper.TrackFX_SetEQBandEnabled(track, fx, 2, bi, true) end)
+    end
+  end)
+  reaper.Undo_EndBlock2(0, 'Cadenzai: apply drawn EQ', -1)
+  if ok then
+    write_eq_result(req.id, 'applied', 'Added a Cadenzai EQ with ' .. #req.bands .. ' band(s).', track_name, #req.bands)
+  else
+    write_eq_result(req.id, 'error', err, track_name, 0)
+  end
 end
 
 local function quote(value)
@@ -124,6 +210,15 @@ local function tick()
       last_cursor = cursor.stamp
       os.remove(cursor_file)
       reaper.SetEditCurPos(cursor.time, true, true)
+    end
+    -- Producer-directed EQ write-back: only when Cadenzai sends an explicit,
+    -- approved request. One ReaEQ, one undo step, nothing else in the project.
+    local eq = read_eq_request()
+    if eq and eq.id ~= last_eq then
+      last_eq = eq.id
+      os.remove(eq_request_file)
+      local aok, aerr = pcall(apply_eq, eq)
+      if not aok then write_eq_result(eq.id, 'error', aerr, '', 0) end
     end
     -- One analysis at a time; a new request id starts a read-only measurement
     -- of whatever is selected in REAPER at this moment.

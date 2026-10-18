@@ -1,6 +1,6 @@
 import { readLevelReport } from './server/reaperLevels';
 import { createReaperReader, localRequestOnly } from './server/reaper';
-import { createAnalyzeHandler, createCursorHandler } from './server/reaperRequest';
+import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, readEqResult } from './server/reaperRequest';
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -36,6 +36,14 @@ async function startServer() {
 
   // Navigation only: move REAPER's edit cursor to a clicked point (no edits).
   app.post('/api/reaper/cursor', createCursorHandler({ readConnection: readReaper }));
+
+  // Producer-directed EQ write-back: add a single, clearly named ReaEQ on the
+  // drawn track — only on an explicit click, and reversible with undo in REAPER.
+  app.post('/api/reaper/apply-eq', createApplyEqHandler({ readConnection: readReaper }));
+  app.get('/api/reaper/eq-result', async (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ result: await readEqResult() });
+  });
 
   // Set up GenAI Client (server-side only)
   let ai: GoogleGenAI | null = null;

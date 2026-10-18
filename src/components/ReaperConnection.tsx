@@ -19,9 +19,11 @@ export interface AnalyzeView {
 }
 
 // A captured tone curve, kept across analyses so two tracks can be overlaid.
+// trackId is REAPER's GUID for the track, so draw-to-EQ can target it exactly.
 export interface SpectrumEntry {
   id: string;
   track: string;
+  trackId: string;
   spectrum: { f: number; db: number }[];
 }
 
@@ -69,7 +71,7 @@ export function ReaperConnection() {
       setSpectra(prev => {
         if (prev[0]?.id === r.id) return prev;
         const track = r.trackName || 'Track';
-        return [{ id: r.id, track, spectrum: r.metrics!.spectrum! }, ...prev.filter(e => e.track !== track)].slice(0, 3);
+        return [{ id: r.id, track, trackId: r.trackId, spectrum: r.metrics!.spectrum! }, ...prev.filter(e => e.track !== track)].slice(0, 3);
       });
     }
   }, [state.levels?.id, state.levels?.status]);

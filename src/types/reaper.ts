@@ -22,6 +22,19 @@ export interface AnalyzeRequestResponse {
   requestId: string;
 }
 
+// Producer-directed EQ write-back (draw-to-EQ Gate 2). A drawn bell band and the
+// outcome the bridge echoes back after adding the ReaEQ.
+export interface EqBand { f: number; g: number; q: number }
+export interface ApplyEqResponse { requestId: string }
+export interface EqResult {
+  requestId: string;
+  status: 'applied' | 'error';
+  message: string;
+  trackName: string;
+  bandCount: number;
+  updatedAt: number;
+}
+
 export interface LevelMetrics {
   samplePeakDbfs?: number; rmsDbfs?: number; crestDb?: number; activeVariationDb?: number;
   activeWindows: number; samplesAtFullScale: number; sampleCount: number; silent: boolean;

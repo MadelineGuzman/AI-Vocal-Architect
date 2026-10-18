@@ -89,6 +89,16 @@ try {
     const cursor = spawnSync('lua', ['tests/reaper-bridge-cursor.lua'], { encoding: 'utf8' });
     assert.equal(cursor.status, 0, cursor.stderr);
     console.log(cursor.stdout.trim());
+
+    // The continuous bridge also applies a producer-directed EQ on request.
+    const applyEq = spawnSync('lua', ['tests/reaper-bridge-apply-eq.lua'], { encoding: 'utf8' });
+    assert.equal(applyEq.status, 0, applyEq.stderr);
+    const applyLines = applyEq.stdout.trim().split(/\r?\n/);
+    const eqResult = JSON.parse(applyLines[0]) as { status: string; requestId: string; bandCount: number };
+    assert.equal(eqResult.status, 'applied');
+    assert.equal(eqResult.requestId, 'eq-test-00000001');
+    assert.equal(eqResult.bandCount, 2);
+    console.log(applyLines[1]);
   }
   console.log('REAPER snapshot, expiry, recovery, size, schema, Unicode and HTTP origin tests passed.');
 } finally { await rm(folder, { recursive: true, force: true }); }

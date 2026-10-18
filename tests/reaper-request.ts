@@ -3,7 +3,7 @@ import express from 'express';
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createAnalyzeHandler, createCursorHandler, readPendingRequest, writeAnalyzeRequest, PENDING_REQUEST_MS } from '../server/reaperRequest';
+import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, readPendingRequest, writeAnalyzeRequest, writeEqRequest, readEqResult, sanitizeBands, PENDING_REQUEST_MS } from '../server/reaperRequest';
 import { localRequestOnly } from '../server/reaper';
 
 const folder = await mkdtemp(path.join(os.tmpdir(), 'cadenzai-request-test-'));
@@ -102,6 +102,56 @@ try {
     await new Promise<void>((resolve, reject) => cserver.close(error => error ? reject(error) : resolve()));
   }
   console.log('REAPER cursor move: valid/invalid time, disconnected and origin guards passed.');
+
+  // --- draw-to-EQ (Gate 2): band sanitize + request/result module round trip ---
+  assert.equal(sanitizeBands([]), null, 'empty band set rejected');
+  assert.equal(sanitizeBands([{ f: 300, g: -4, q: 1.2 }])?.length, 1, 'a valid band is accepted');
+  assert.equal(sanitizeBands([{ f: 5, g: 0, q: 1 }]), null, 'frequency below range rejected');
+  assert.equal(sanitizeBands([{ f: 300, g: 99, q: 1 }]), null, 'gain above range rejected');
+  assert.equal(sanitizeBands([{ f: 300, g: 0, q: 50 }]), null, 'Q above range rejected');
+  assert.equal(sanitizeBands(new Array(17).fill({ f: 300, g: 0, q: 1 })), null, 'too many bands rejected');
+  const eqFile = path.join(folder, 'eq-request.json');
+  await writeEqRequest('eq-abc-123', '{TRK-1}', [{ f: 300, g: -4, q: 1.2 }], 7000, eqFile);
+  const eqRaw = JSON.parse(await readFile(eqFile, 'utf8')) as { kind: string; trackId: string; bands: { g: number }[] };
+  assert.equal(eqRaw.kind, 'apply-eq');
+  assert.equal(eqRaw.trackId, '{TRK-1}');
+  assert.equal(eqRaw.bands[0].g, -4);
+  await assert.rejects(() => writeEqRequest('eq-abc-123', 'bad id!', [{ f: 300, g: -4, q: 1.2 }], 1, eqFile), 'malformed track id is never written');
+  const eqResultFile = path.join(folder, 'eq-result.json');
+  assert.equal(await readEqResult(eqResultFile), null, 'missing result reads as none');
+  await writeFile(eqResultFile, JSON.stringify({ version: 1, kind: 'apply-eq-result', requestId: 'eq-abc-123', status: 'applied', message: 'ok', trackName: 'Lead', bandCount: 1, updatedAt: 7000 }));
+  assert.equal((await readEqResult(eqResultFile, 7000))?.status, 'applied');
+  await writeFile(eqResultFile, JSON.stringify({ version: 1, kind: 'apply-eq-result', requestId: 'eq-abc-123', status: 'nope', message: 'x', trackName: 'y', bandCount: 1, updatedAt: 7000 }));
+  assert.equal(await readEqResult(eqResultFile, 7000), null, 'an invalid status is rejected');
+
+  // --- POST /api/reaper/apply-eq via a real HTTP boundary ---
+  let eqConn = 'connected';
+  const eapp = express();
+  let eport = 0;
+  eapp.use((req, res, next) => localRequestOnly(eport)(req, res, next));
+  eapp.use(express.json());
+  eapp.post('/api/reaper/apply-eq', createApplyEqHandler({ readConnection: async () => ({ status: eqConn }), eqFile, now: () => 8000 }));
+  const eserver = eapp.listen(0, '127.0.0.1');
+  await new Promise<void>(resolve => eserver.once('listening', resolve));
+  eport = (eserver.address() as { port: number }).port;
+  const eurl = 'http://127.0.0.1:' + eport + '/api/reaper/apply-eq';
+  const ehost = '127.0.0.1:' + eport;
+  const epost = (body: unknown, headers: Record<string, string> = {}) =>
+    fetch(eurl, { method: 'POST', headers: { Host: ehost, Origin: 'http://' + ehost, 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await epost({ trackId: '{TRK}', bands: [{ f: 300, g: -4, q: 1.2 }] })).status, 200, 'valid apply accepted');
+    assert.equal((JSON.parse(await readFile(eqFile, 'utf8')) as { trackId: string }).trackId, '{TRK}', 'the request file is written');
+    assert.equal((await epost({ trackId: 'bad!', bands: [{ f: 300, g: -4, q: 1.2 }] })).status, 400, 'invalid track rejected');
+    assert.equal((await epost({ trackId: '{TRK}', bands: [] })).status, 400, 'empty bands rejected');
+    assert.equal((await epost({ trackId: '{TRK}', bands: [{ f: 1, g: 0, q: 1 }] })).status, 400, 'out-of-range band rejected');
+    eqConn = 'disconnected';
+    assert.equal((await epost({ trackId: '{TRK}', bands: [{ f: 300, g: -4, q: 1.2 }] })).status, 409, 'rejected when REAPER is not connected');
+    eqConn = 'connected';
+    assert.equal((await epost({ trackId: '{TRK}', bands: [{ f: 300, g: -4, q: 1.2 }] }, { Origin: 'https://untrusted.example' })).status, 403, 'cross-origin rejected');
+  } finally {
+    await new Promise<void>((resolve, reject) => eserver.close(error => error ? reject(error) : resolve()));
+  }
+  console.log('REAPER apply-EQ channel: band sanitize, module round-trip, validation, disconnected and origin guards passed.');
 } finally {
   await rm(folder, { recursive: true, force: true });
 }

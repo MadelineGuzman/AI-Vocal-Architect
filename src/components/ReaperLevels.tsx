@@ -154,8 +154,10 @@ function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear
   const [pick, setPick] = useState<number | null>(null);
   const [drawOn, setDrawOn] = useState(false);
   const [target, setTarget] = useState<number[] | null>(null);
+  const [apply, setApply] = useState<{ phase: 'idle' | 'sending' | 'waiting' | 'applied' | 'error'; message: string }>({ phase: 'idle', message: '' });
   const drawingRef = useRef(false);
   const lastBandRef = useRef<number | null>(null);
+  const applyIdRef = useRef<string | null>(null);
   if (!history.length) return null;
   const W = 1000, H = 150, padL = 4, padR = 4, padT = 8, padB = 14;
   const fMin = 25;
@@ -189,9 +191,10 @@ function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear
     return Math.max(yBot, Math.min(yTop, d));
   };
 
-  const startDraw = () => { setPick(null); setTarget(spec.map(p => p.db)); setDrawOn(true); };
-  const stopDraw = () => { setDrawOn(false); drawingRef.current = false; lastBandRef.current = null; };
-  const resetDraw = () => { setTarget(spec.map(p => p.db)); };
+  const clearApply = () => { applyIdRef.current = null; setApply({ phase: 'idle', message: '' }); };
+  const startDraw = () => { setPick(null); setTarget(spec.map(p => p.db)); setDrawOn(true); clearApply(); };
+  const stopDraw = () => { setDrawOn(false); drawingRef.current = false; lastBandRef.current = null; clearApply(); };
+  const resetDraw = () => { setTarget(spec.map(p => p.db)); clearApply(); };
 
   const applyAt = (e: ReactPointerEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -210,7 +213,7 @@ function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear
     });
     lastBandRef.current = b;
   };
-  const onPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => { if (!drawOn) return; drawingRef.current = true; lastBandRef.current = null; e.currentTarget.setPointerCapture?.(e.pointerId); applyAt(e); };
+  const onPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => { if (!drawOn) return; drawingRef.current = true; lastBandRef.current = null; if (apply.phase !== 'idle') clearApply(); e.currentTarget.setPointerCapture?.(e.pointerId); applyAt(e); };
   const onPointerMove = (e: ReactPointerEvent<SVGSVGElement>) => { if (drawOn && drawingRef.current) applyAt(e); };
   const endStroke = () => { drawingRef.current = false; lastBandRef.current = null; };
 
@@ -233,6 +236,43 @@ function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear
     }
   }
   const topMoves = moves.slice().sort((a, b) => Math.abs(b.db) - Math.abs(a.db)).slice(0, 4);
+
+  // Turn the drawn regions into parametric bell bands: center = region's peak
+  // frequency, gain = its peak departure, Q from its width in octaves.
+  const buildBands = () => moves.slice().sort((a, b) => Math.abs(b.db) - Math.abs(a.db)).slice(0, 16).map(m => {
+    const bw = Math.max(0.17, Math.log2(Math.max(m.f1, m.f0 + 1) / m.f0));
+    const twoBw = Math.pow(2, bw);
+    const q = Math.min(8, Math.max(0.3, Math.sqrt(twoBw) / (twoBw - 1)));
+    return { f: Math.round(m.fc), g: Math.max(-36, Math.min(36, Math.round(m.db * 10) / 10)), q: Math.round(q * 100) / 100 };
+  });
+
+  const canApply = Boolean(primary.trackId) && moves.length > 0;
+  // Poll the bridge's echoed outcome until it matches this request or times out.
+  const pollEq = (id: string, deadline: number) => {
+    if (applyIdRef.current !== id) return;
+    fetch('/api/reaper/eq-result', { cache: 'no-store' }).then(r => r.json()).then((d: { result: { requestId: string; status: string; message: string } | null }) => {
+      if (applyIdRef.current !== id) return;
+      const res = d.result;
+      if (res && res.requestId === id) {
+        setApply({ phase: res.status === 'applied' ? 'applied' : 'error', message: res.message });
+      } else if (Date.now() < deadline) {
+        setTimeout(() => pollEq(id, deadline), 500);
+      } else {
+        setApply({ phase: 'error', message: 'REAPER didn’t confirm the EQ. Make sure the Cadenzai bridge is running, then try again.' });
+      }
+    }).catch(() => { if (applyIdRef.current === id && Date.now() < deadline) setTimeout(() => pollEq(id, deadline), 500); else setApply({ phase: 'error', message: 'Could not reach the local server.' }); });
+  };
+  const onApply = () => {
+    if (!canApply) return;
+    setApply({ phase: 'sending', message: '' });
+    fetch('/api/reaper/apply-eq', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trackId: primary.trackId, bands: buildBands() }) })
+      .then(async r => {
+        const b = await r.json().catch(() => ({})) as { requestId?: string; error?: string };
+        if (r.ok && b.requestId) { applyIdRef.current = b.requestId; setApply({ phase: 'waiting', message: '' }); pollEq(b.requestId, Date.now() + 9000); }
+        else setApply({ phase: 'error', message: b.error || 'REAPER could not accept the EQ.' });
+      })
+      .catch(() => setApply({ phase: 'error', message: 'Could not reach the local server.' }));
+  };
 
   const overlaps: { x0: number; x1: number }[] = [];
   if (history.length >= 2 && !drawOn) {
@@ -319,9 +359,22 @@ function FrequencyView({ history, onClear }: { history: SpectrumEntry[]; onClear
             {moves.length
               ? <>
                   <p><span className="font-medium text-zinc-200">EQ to get this shape on {primary.track}:</span> {topMoves.map((m, i) => <span key={m.fc}><span style={{ color: m.db < 0 ? '#f87171' : '#4ade80' }}>{describeMove(m)}</span>{i < topMoves.length - 1 ? '; ' : ''}</span>)}.</p>
-                  <p className="mt-1 text-zinc-500">Dial these into an EQ on this track to match what you drew. Cadenzai hasn’t changed anything — one-click apply in REAPER is the next step.</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <button onClick={onApply} disabled={!canApply || apply.phase === 'sending' || apply.phase === 'waiting'}
+                      className="rounded bg-amber-500 px-2.5 py-1 text-[11px] font-semibold text-zinc-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50">
+                      Apply in REAPER
+                    </button>
+                    {apply.phase === 'sending' || apply.phase === 'waiting'
+                      ? <span className="flex items-center gap-1.5 text-cyan-300"><Loader2 size={13} className="animate-spin" /> Adding the EQ in REAPER…</span>
+                      : apply.phase === 'applied'
+                        ? <span className="flex items-center gap-1.5 text-green-400"><CheckCircle2 size={13} /> {apply.message} Hear it on {primary.track}, tweak it, or press Ctrl+Z in REAPER to undo.</span>
+                        : apply.phase === 'error'
+                          ? <span className="flex items-center gap-1.5 text-amber-300"><AlertTriangle size={13} /> {apply.message}</span>
+                          : <span className="text-zinc-500">Builds one “Cadenzai EQ” on this track — only when you click, undoable in REAPER.</span>}
+                  </div>
+                  {!primary.trackId && <p className="mt-1 text-zinc-500">Re-analyze this track from REAPER to enable one-click apply.</p>}
                 </>
-              : <p className="text-zinc-500">Drag across the graph to draw the tone you want — pull a region down to thin it, push it up to bring it out. Cadenzai reads off the exact EQ moves and never touches your audio.</p>}
+              : <p className="text-zinc-500">Drag across the graph to draw the tone you want — pull a region down to thin it, push it up to bring it out. Cadenzai reads off the exact EQ moves, and only writes to REAPER when you click Apply.</p>}
           </div>
         : <p className="mt-2 text-[11px] leading-relaxed">{readout ?? <span className="text-zinc-500">{history.length >= 2 ? 'Red bands are where both tracks are loud — where they mask each other. Click a spot to see which is louder and which to carve.' : 'Your track’s tone. Click any spot to read its level, or draw the tone you want to see the EQ that gets there.'}</span>}</p>}
     </div>

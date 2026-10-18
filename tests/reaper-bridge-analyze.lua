@@ -13,7 +13,7 @@ os.execute = function() return true end  -- do not actually launch the app in te
 os.remove = function(file) assert(file == '/test-only/Cadenzai/reaper-bridge/request.json'); removed = true; return true end
 io.open = function(file, mode)
   if mode == 'rb' then
-    if file == '/test-only/Cadenzai/reaper-bridge/cursor.json' then return nil end
+    if file == '/test-only/Cadenzai/reaper-bridge/cursor.json' or file == '/test-only/Cadenzai/reaper-bridge/eq-request.json' then return nil end
     assert(file == '/test-only/Cadenzai/reaper-bridge/request.json')
     if removed then return nil end
     return { read = function() return REQUEST end, close = function() return true end }
