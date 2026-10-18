@@ -116,9 +116,12 @@ export function createCursorHandler(deps: { readConnection: () => Promise<{ stat
 }
 
 // Transport control: a fixed allow-list of playback/record transport actions,
-// so the producer (or, later, a collaborator) can drive REAPER's transport from
-// Cadenzai. Fire-and-forget like the cursor move — no project edits, no result.
-export const ALLOWED_TRANSPORT = ['to-start', 'play', 'pause', 'stop', 'record', 'toggle-loop'] as const;
+// plus the single reversible "delete last take" (mapped to REAPER's Undo of the
+// last recording). So the producer (or, later, a collaborator) can drive the
+// transport and scrap a bad take from Cadenzai. Fire-and-forget like the cursor
+// move. Everything here is a REAPER transport action or a reversible undo — no
+// arbitrary edits, routing, or FX.
+export const ALLOWED_TRANSPORT = ['to-start', 'play', 'pause', 'stop', 'record', 'toggle-loop', 'delete-take'] as const;
 export type TransportAction = typeof ALLOWED_TRANSPORT[number];
 const isAllowedTransport = (x: unknown): x is TransportAction => typeof x === 'string' && (ALLOWED_TRANSPORT as readonly string[]).includes(x);
 

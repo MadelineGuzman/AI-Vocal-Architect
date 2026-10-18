@@ -274,16 +274,18 @@ local function apply_automation(req)
   end
 end
 
--- Transport control: a fixed allow-list of REAPER main transport actions. These
--- are playback/record transport only — no project edits, routing, or FX. The
+-- Transport control: a fixed allow-list of REAPER main actions. These are
+-- playback/record transport plus the single reversible "delete last take"
+-- (Undo of the last recording) — no arbitrary edits, routing, or FX. The
 -- collaborator (or the producer) can drive the transport from Cadenzai.
 local TRANSPORT = {
-  ['to-start'] = 40630, -- Transport: Go to start of time selection
-  play = 1007,          -- Transport: Play
-  pause = 1008,         -- Transport: Pause
-  stop = 1016,          -- Transport: Stop
-  record = 1013,        -- Transport: Record
+  ['to-start'] = 40630,   -- Transport: Go to start of time selection
+  play = 1007,            -- Transport: Play
+  pause = 1008,           -- Transport: Pause
+  stop = 1016,            -- Transport: Stop
+  record = 1013,          -- Transport: Record
   ['toggle-loop'] = 1068, -- Transport: Toggle repeat
+  ['delete-take'] = 40029, -- Edit: Undo (scraps the last recording; reversible with Redo)
 }
 
 local function read_transport()

@@ -256,6 +256,8 @@ try {
     assert.equal(written.kind, 'transport');
     assert.equal(written.action, 'record');
     assert.equal((await tpost({ action: 'play' })).status, 200, 'play is accepted');
+    assert.equal((await tpost({ action: 'delete-take' })).status, 200, 'the reversible delete-take action is accepted');
+    assert.equal((JSON.parse(await readFile(transportFile, 'utf8')) as { action: string }).action, 'delete-take');
     assert.equal((await tpost({ action: 'delete-everything' })).status, 400, 'a non-whitelisted action is rejected');
     assert.equal((await tpost({ action: 42 })).status, 400, 'a non-string action is rejected');
     transConn = 'disconnected';
