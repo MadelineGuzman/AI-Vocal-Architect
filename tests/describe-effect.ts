@@ -17,6 +17,18 @@ assert.equal(planEffect('tighten it up', 'Vox')?.fx, 'ReaComp');
 // The plan names the target track so the UI can show what it affects.
 const plan = planEffect('add an echo', 'Lead Vox');
 assert.ok(plan && plan.what.includes('Lead Vox'), 'plan names the track');
-assert.ok(plan && plan.title === 'Echo' && plan.knobs.length > 0, 'plan has a title and knob guidance');
+assert.ok(plan && plan.title === 'Echo' && plan.knobs.length > 0, 'plain intent has a base title and knob guidance');
 
-console.log('describe-to-effect parser: intent matches, misses, and track naming tests passed.');
+// A vibe in the description sharpens the title + knob targets to that style.
+assert.equal(planEffect('slappy echo', 'Vox')?.style, 'slappy');
+assert.equal(planEffect('slappy echo', 'Vox')?.title, 'Slappy echo');
+assert.equal(planEffect('give it a big lush reverb', 'Vox')?.style, 'big');
+assert.equal(planEffect('just a subtle reverb', 'Vox')?.style, 'subtle');
+assert.equal(planEffect('hard compression', 'Vox')?.style, 'hard');
+assert.equal(planEffect('gentle comp', 'Vox')?.style, 'gentle');
+// A plain intent with no vibe keeps the base plan (no style).
+assert.equal(planEffect('add some reverb', 'Vox')?.style, undefined);
+// Vibe-specific knobs differ from the default knobs.
+assert.notEqual(planEffect('slappy echo', 'Vox')?.knobs, planEffect('add an echo', 'Vox')?.knobs);
+
+console.log('describe-to-effect parser: intent matches, misses, track naming, and vibe-specific styles tests passed.');

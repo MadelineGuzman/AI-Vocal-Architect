@@ -64,7 +64,7 @@ export function DescribeEffect({ track }: { track: { id: string; name: string } 
                     {busy
                       ? <span className="flex items-center gap-1.5 text-cyan-300"><Loader2 size={13} className="animate-spin" /> Adding it in REAPER…</span>
                       : apply.phase === 'applied'
-                        ? <span className="flex items-center gap-1.5 text-green-400"><CheckCircle2 size={13} /> {apply.message} It’s on {track.name} at its starting point — tweak the knobs above, or Ctrl+Z in REAPER to undo.</span>
+                        ? <span className="flex items-center gap-1.5 text-green-400"><CheckCircle2 size={13} /> {apply.message} It’s on {track.name} at its default — dial the targets above to get the sound, or Ctrl+Z in REAPER to undo.</span>
                         : apply.phase === 'error'
                           ? <span className="flex items-center gap-1.5 text-amber-300"><AlertTriangle size={13} /> {apply.message}</span>
                           : <span className="text-zinc-500">Adds just this one effect, only when you click — undoable in REAPER.</span>}
