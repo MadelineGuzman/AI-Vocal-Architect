@@ -4,10 +4,12 @@ import { AutomateSelection } from './AutomateSelection';
 import { Transport } from './Transport';
 import { Proposals } from './Proposals';
 import { VocalChain } from './VocalChain';
+import { ArtistView } from './ArtistView';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Cable } from 'lucide-react';
 import type { ReaperState, AnalyzeRequestResponse } from '../types/reaper';
 import { useProjectStore } from '../store/projectStore';
+import { useModeStore } from '../store/modeStore';
 
 const initial: ReaperState = { status: 'waiting', snapshot: null, message: 'Checking local connection…' };
 
@@ -34,6 +36,8 @@ export interface SpectrumEntry {
 
 export function ReaperConnection() {
   const setIsImportModalOpen = useProjectStore(s => s.setIsImportModalOpen);
+  const mode = useModeStore(s => s.mode);
+  const setMode = useModeStore(s => s.setMode);
   const [state, setState] = useState<ReaperState>(initial);
   const [request, setRequest] = useState<{ id: string; startedAt: number } | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
@@ -152,6 +156,11 @@ export function ReaperConnection() {
             ? <span className="text-zinc-400">{connected ? '' : 'Last known: '}{trackLabel}</span>
             : <span className="text-zinc-500">Run “Cadenzai_Read_Selection.lua” in REAPER to connect — no audio is transferred.</span>}
           <span className="ml-auto flex items-center gap-3 text-zinc-500">
+            {/* Capability mode: Engineer (full tools) vs Artist (direct actions, hand to a collaborator). */}
+            <span className="flex items-center rounded border border-zinc-800 p-0.5 text-[11px]" role="group" aria-label="Mode">
+              <button onClick={() => setMode('engineer')} aria-pressed={mode === 'engineer'} className={mode === 'engineer' ? 'rounded bg-zinc-700 px-2 py-0.5 text-zinc-100' : 'px-2 py-0.5 hover:text-zinc-300'}>Engineer</button>
+              <button onClick={() => setMode('artist')} aria-pressed={mode === 'artist'} className={mode === 'artist' ? 'rounded bg-amber-500 px-2 py-0.5 font-medium text-zinc-950' : 'px-2 py-0.5 hover:text-zinc-300'}>Artist</button>
+            </span>
             {snapshot && <span>{snapshot.project.name}{snapshot.project.saved ? '' : ' · unsaved'}</span>}
             <button onClick={() => setIsImportModalOpen(true)} className="rounded border border-zinc-800 px-2 py-1 hover:border-zinc-700 hover:text-zinc-300">Import a song instead</button>
           </span>
@@ -159,13 +168,15 @@ export function ReaperConnection() {
       </div>
       {/* Roomy results dashboard. */}
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-6xl p-6">
-          <Proposals connected={connected} />
-          <div className="mb-5 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3"><Transport connected={connected} transport={snapshot?.transport} /></div>
-          <ReaperLevels state={state} analyze={analyze} spectra={spectra} onClearSpectra={() => setSpectra([])} />
-          {connected && <div className="mt-6 grid gap-4 lg:grid-cols-2"><DescribeEffect track={effectTrack} /><AutomateSelection track={effectTrack} /></div>}
-          <div className="mt-6"><VocalChain track={connected ? effectTrack : null} /></div>
-        </div>
+        {mode === 'artist'
+          ? <div className="p-6"><ArtistView track={connected ? effectTrack : null} connected={connected} transport={snapshot?.transport} /></div>
+          : <div className="mx-auto max-w-6xl p-6">
+              <Proposals connected={connected} />
+              <div className="mb-5 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3"><Transport connected={connected} transport={snapshot?.transport} /></div>
+              <ReaperLevels state={state} analyze={analyze} spectra={spectra} onClearSpectra={() => setSpectra([])} />
+              {connected && <div className="mt-6 grid gap-4 lg:grid-cols-2"><DescribeEffect track={effectTrack} /><AutomateSelection track={effectTrack} /></div>}
+              <div className="mt-6"><VocalChain track={connected ? effectTrack : null} /></div>
+            </div>}
       </div>
     </section>
   );
