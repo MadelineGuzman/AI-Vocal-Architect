@@ -48,6 +48,18 @@ export interface FxResult {
   updatedAt: number;
 }
 
+// Build-the-chain: a vibe's full vocal chain (EQ + ordered FX rack) in REAPER.
+export interface ApplyChainResponse { requestId: string }
+export interface ChainResult {
+  requestId: string;
+  status: 'applied' | 'error';
+  message: string;
+  trackName: string;
+  bandCount: number;
+  fxCount: number;
+  updatedAt: number;
+}
+
 // Time-selection automation: write a volume envelope over the REAPER selection.
 export interface ApplyAutomationResponse { requestId: string }
 export interface AutomationResult {

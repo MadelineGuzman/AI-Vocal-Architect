@@ -3,7 +3,7 @@ import express from 'express';
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, createApplyFxHandler, createApplyAutomationHandler, createTransportHandler, readPendingRequest, writeAnalyzeRequest, writeEqRequest, readEqResult, writeFxRequest, readFxResult, writeAutomationRequest, readAutomationResult, sanitizeBands, PENDING_REQUEST_MS } from '../server/reaperRequest';
+import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, createApplyFxHandler, createApplyAutomationHandler, createTransportHandler, createApplyChainHandler, readPendingRequest, writeAnalyzeRequest, writeEqRequest, readEqResult, writeFxRequest, readFxResult, writeAutomationRequest, readAutomationResult, writeChainRequest, readChainResult, sanitizeChainFx, sanitizeBands, PENDING_REQUEST_MS } from '../server/reaperRequest';
 import { localRequestOnly } from '../server/reaper';
 
 const folder = await mkdtemp(path.join(os.tmpdir(), 'cadenzai-request-test-'));
@@ -268,6 +268,54 @@ try {
     await new Promise<void>((resolve, reject) => tserver.close(error => error ? reject(error) : resolve()));
   }
   console.log('REAPER transport channel: action allow-list, file write, validation, disconnected and origin guards passed.');
+
+  // --- build-the-chain: apply-chain module + validation ---
+  assert.deepEqual(sanitizeChainFx(['ReaComp', 'ReaDelay', 'ReaVerbate']), ['ReaComp', 'ReaDelay', 'ReaVerbate']);
+  assert.equal(sanitizeChainFx(['ReaComp', 'EvilPlugin']), null, 'a non-whitelisted effect in the rack is rejected');
+  assert.equal(sanitizeChainFx([]), null, 'an empty rack is rejected');
+  const chainFile = path.join(folder, 'chain-request.json');
+  await writeChainRequest('chain-abc-123', '{TRK-1}', { hpf: 80, bands: [{ f: 300, g: -2, q: 1 }], fx: ['ReaComp', 'ReaVerbate'], profile: 'Chopped & Screwed' }, 11000, chainFile);
+  const chainRaw = JSON.parse(await readFile(chainFile, 'utf8')) as { kind: string; hpf: number; fx: string[]; profile: string };
+  assert.equal(chainRaw.kind, 'apply-chain');
+  assert.equal(chainRaw.hpf, 80);
+  assert.deepEqual(chainRaw.fx, ['ReaComp', 'ReaVerbate']);
+  assert.equal(chainRaw.profile, 'Chopped & Screwed');
+  await assert.rejects(() => writeChainRequest('chain-abc-123', '{TRK-1}', { hpf: 80, bands: [{ f: 300, g: -2, q: 1 }], fx: ['Nope'], profile: 'x' }, 1, chainFile), 'a non-whitelisted rack is never written');
+  const chainResultFile = path.join(folder, 'chain-result.json');
+  assert.equal(await readChainResult(chainResultFile), null, 'missing result reads as none');
+  await writeFile(chainResultFile, JSON.stringify({ version: 1, kind: 'apply-chain-result', requestId: 'chain-abc-123', status: 'applied', message: 'ok', trackName: 'Lead', bandCount: 3, fxCount: 3, updatedAt: 11000 }));
+  assert.equal((await readChainResult(chainResultFile, 11000))?.fxCount, 3);
+
+  // --- POST /api/reaper/apply-chain via a real HTTP boundary ---
+  let chainConn = 'connected';
+  const capp2 = express();
+  let cport2 = 0;
+  capp2.use((req, res, next) => localRequestOnly(cport2)(req, res, next));
+  capp2.use(express.json());
+  capp2.post('/api/reaper/apply-chain', createApplyChainHandler({ readConnection: async () => ({ status: chainConn }), chainFile, now: () => 11000 }));
+  const cserver2 = capp2.listen(0, '127.0.0.1');
+  await new Promise<void>(resolve => cserver2.once('listening', resolve));
+  cport2 = (cserver2.address() as { port: number }).port;
+  const curl2 = 'http://127.0.0.1:' + cport2 + '/api/reaper/apply-chain';
+  const chost2 = '127.0.0.1:' + cport2;
+  const cpost2 = (body: unknown, headers: Record<string, string> = {}) =>
+    fetch(curl2, { method: 'POST', headers: { Host: chost2, Origin: 'http://' + chost2, 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  try {
+    const good = { trackId: '{TRK}', hpf: 75, bands: [{ f: 320, g: -1.8, q: 1 }, { f: 3000, g: 1, q: 1 }], fx: ['ReaComp', 'ReaDelay', 'ReaVerbate'], profile: 'Chopped & Screwed' };
+    assert.equal((await cpost2(good)).status, 200, 'a valid chain is accepted');
+    assert.deepEqual((JSON.parse(await readFile(chainFile, 'utf8')) as { fx: string[] }).fx, ['ReaComp', 'ReaDelay', 'ReaVerbate']);
+    assert.equal((await cpost2({ ...good, fx: ['ReaComp', 'EvilPlugin'] })).status, 400, 'a non-whitelisted rack is rejected');
+    assert.equal((await cpost2({ ...good, bands: [] })).status, 400, 'empty bands rejected');
+    assert.equal((await cpost2({ ...good, hpf: 9 })).status, 400, 'out-of-range high-pass rejected');
+    assert.equal((await cpost2({ ...good, trackId: 'bad!' })).status, 400, 'invalid track rejected');
+    chainConn = 'disconnected';
+    assert.equal((await cpost2(good)).status, 409, 'rejected when REAPER is not connected');
+    chainConn = 'connected';
+    assert.equal((await cpost2(good, { Origin: 'https://untrusted.example' })).status, 403, 'cross-origin rejected');
+  } finally {
+    await new Promise<void>((resolve, reject) => cserver2.close(error => error ? reject(error) : resolve()));
+  }
+  console.log('REAPER build-the-chain channel: rack allow-list, module round-trip, validation, disconnected and origin guards passed.');
 } finally {
   await rm(folder, { recursive: true, force: true });
 }

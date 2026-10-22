@@ -1,6 +1,6 @@
 import { readLevelReport } from './server/reaperLevels';
 import { createReaperReader, localRequestOnly } from './server/reaper';
-import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, readEqResult, createApplyFxHandler, readFxResult, createApplyAutomationHandler, readAutomationResult, createTransportHandler } from './server/reaperRequest';
+import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, readEqResult, createApplyFxHandler, readFxResult, createApplyAutomationHandler, readAutomationResult, createTransportHandler, createApplyChainHandler, readChainResult } from './server/reaperRequest';
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -62,6 +62,14 @@ async function startServer() {
   app.get('/api/reaper/automation-result', async (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.json({ result: await readAutomationResult() });
+  });
+
+  // Build-the-chain: a vibe's full vocal chain (EQ + ordered FX rack) in one undo
+  // block, only on an explicit click, reversible with undo.
+  app.post('/api/reaper/apply-chain', createApplyChainHandler({ readConnection: readReaper }));
+  app.get('/api/reaper/chain-result', async (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ result: await readChainResult() });
   });
 
   // Set up GenAI Client (server-side only)

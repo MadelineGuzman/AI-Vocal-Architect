@@ -126,6 +126,17 @@ try {
     const transport = spawnSync('lua', ['tests/reaper-bridge-transport.lua'], { encoding: 'utf8' });
     assert.equal(transport.status, 0, transport.stderr);
     console.log(transport.stdout.trim());
+
+    // The continuous bridge also builds a full vocal chain (EQ + FX rack) on request.
+    const chain = spawnSync('lua', ['tests/reaper-bridge-apply-chain.lua'], { encoding: 'utf8' });
+    assert.equal(chain.status, 0, chain.stderr);
+    const chainLines = chain.stdout.trim().split(/\r?\n/);
+    const chainResult = JSON.parse(chainLines[0]) as { status: string; requestId: string; bandCount: number; fxCount: number };
+    assert.equal(chainResult.status, 'applied');
+    assert.equal(chainResult.requestId, 'chain-test-00000001');
+    assert.equal(chainResult.bandCount, 2);
+    assert.equal(chainResult.fxCount, 2);
+    console.log(chainLines[1]);
   }
   console.log('REAPER snapshot, expiry, recovery, size, schema, Unicode and HTTP origin tests passed.');
 } finally { await rm(folder, { recursive: true, force: true }); }

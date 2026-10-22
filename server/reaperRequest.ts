@@ -331,6 +331,82 @@ export function createApplyAutomationHandler(deps: { readConnection: () => Promi
   };
 }
 
+// --- Build-the-chain (producer-directed, vibe -> full vocal chain) -----------
+// One request builds a ReaEQ (high-pass + tone bands) plus an ordered rack of
+// allow-listed stock effects, in a single undo block. Carries only a track GUID,
+// an optional HPF, bell bands (freq/gain/Q), and effect names from the fixed
+// allow-list — never arbitrary plugins, paths, Lua, or parameters.
+const isProfileName = (x: unknown): x is string => typeof x === 'string' && x.length >= 1 && x.length <= 40 && /^[\w &/-]+$/.test(x);
+
+export interface ChainSpec { hpf: number | null; bands: EqBand[]; fx: string[]; profile: string }
+
+export function sanitizeChainFx(x: unknown): string[] | null {
+  if (!Array.isArray(x) || x.length < 1 || x.length > 6) return null;
+  const out: string[] = [];
+  for (const name of x) { if (!isAllowedFx(name)) return null; out.push(name); }
+  return out;
+}
+
+export function chainRequestPath() { return path.join(path.dirname(bridgePath()), 'chain-request.json'); }
+export function chainResultPath() { return path.join(path.dirname(bridgePath()), 'chain-result.json'); }
+
+export async function writeChainRequest(id: string, trackId: string, spec: ChainSpec, now = Date.now(), filename = chainRequestPath()): Promise<void> {
+  if (!isRequestId(id)) throw new Error('Invalid request id');
+  if (!isTrackId(trackId)) throw new Error('Invalid track id');
+  if (spec.hpf !== null && !finiteIn(spec.hpf, 20, 1000)) throw new Error('Invalid HPF');
+  if (!spec.bands.length || spec.bands.length > 16) throw new Error('Invalid band count');
+  if (!spec.fx.length || spec.fx.length > 6 || !spec.fx.every(isAllowedFx)) throw new Error('Invalid effect list');
+  if (!isProfileName(spec.profile)) throw new Error('Invalid profile');
+  const body = JSON.stringify({ version: 1, kind: 'apply-chain', requestId: id, trackId, hpf: spec.hpf, bands: spec.bands.map(b => ({ f: b.f, g: b.g, q: b.q })), fx: spec.fx, profile: spec.profile, requestedAt: now });
+  await writeFile(filename, body, { encoding: 'utf8' });
+}
+
+export function createApplyChainHandler(deps: { readConnection: () => Promise<{ status: string }>; chainFile?: string; now?: () => number }) {
+  const chainFile = deps.chainFile ?? chainRequestPath();
+  const now = deps.now ?? Date.now;
+  return async (req: Request, res: Response): Promise<void> => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const body = req.body as { trackId?: unknown; hpf?: unknown; bands?: unknown; fx?: unknown; profile?: unknown } | undefined;
+      const trackId = typeof body?.trackId === 'string' ? body.trackId : '';
+      if (!isTrackId(trackId)) { res.status(400).json({ error: 'Invalid track.' }); return; }
+      const bands = sanitizeBands(body?.bands);
+      if (!bands) { res.status(400).json({ error: 'Invalid EQ bands.' }); return; }
+      const fx = sanitizeChainFx(body?.fx);
+      if (!fx) { res.status(400).json({ error: 'Invalid effect list.' }); return; }
+      const hpf = body?.hpf === null || body?.hpf === undefined ? null : Number(body.hpf);
+      if (hpf !== null && !finiteIn(hpf, 20, 1000)) { res.status(400).json({ error: 'Invalid high-pass.' }); return; }
+      const profile = isProfileName(body?.profile) ? body.profile : 'vocal';
+      const connection = await deps.readConnection();
+      if (connection.status !== 'connected') { res.status(409).json({ error: 'REAPER is not connected. Start the Cadenzai bridge, then try again.' }); return; }
+      const requestId = newRequestId();
+      await writeChainRequest(requestId, trackId, { hpf, bands, fx, profile }, now(), chainFile);
+      res.json({ requestId });
+    } catch {
+      res.status(500).json({ error: 'The chain could not be sent to REAPER.' });
+    }
+  };
+}
+
+export interface ChainResult { requestId: string; status: 'applied' | 'error'; message: string; trackName: string; bandCount: number; fxCount: number; updatedAt: number }
+
+export async function readChainResult(filename = chainResultPath(), now = Date.now()): Promise<ChainResult | null> {
+  try {
+    const file = await open(filename, 'r');
+    try {
+      const buffer = Buffer.alloc(MAX_BYTES + 1);
+      const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
+      if (bytesRead > MAX_BYTES) return null;
+      const raw: unknown = JSON.parse(buffer.subarray(0, bytesRead).toString('utf8'));
+      if (!object(raw) || raw.version !== 1 || raw.kind !== 'apply-chain-result' || !isRequestId(raw.requestId) ||
+          (raw.status !== 'applied' && raw.status !== 'error') || typeof raw.message !== 'string' || raw.message.length > 512 ||
+          typeof raw.trackName !== 'string' || raw.trackName.length > 512 ||
+          !finiteIn(raw.bandCount, 0, 64) || !finiteIn(raw.fxCount, 0, 16) || !finiteIn(raw.updatedAt, 1, now + 5000)) return null;
+      return { requestId: raw.requestId, status: raw.status, message: raw.message, trackName: raw.trackName, bandCount: raw.bandCount, fxCount: raw.fxCount, updatedAt: raw.updatedAt };
+    } finally { await file.close(); }
+  } catch { return null; }
+}
+
 export interface AutomationResult { requestId: string; status: 'applied' | 'error'; message: string; trackName: string; updatedAt: number }
 
 export async function readAutomationResult(filename = automationResultPath(), now = Date.now()): Promise<AutomationResult | null> {

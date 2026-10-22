@@ -21,6 +21,8 @@ local fx_result_file = directory .. '/fx-result.json'
 local auto_request_file = directory .. '/auto-request.json'
 local auto_result_file = directory .. '/auto-result.json'
 local transport_file = directory .. '/transport.json'
+local chain_request_file = directory .. '/chain-request.json'
+local chain_result_file = directory .. '/chain-result.json'
 local json = dofile(script_dir .. 'lib/json.lua')
 local metrics = dofile(script_dir .. 'lib/levels.lua')
 local analyze = dofile(script_dir .. 'lib/analyze.lua')
@@ -36,6 +38,7 @@ local last_eq = nil
 local last_fx = nil
 local last_auto = nil
 local last_transport = nil
+local last_chain = nil
 
 -- Read the single approved request file. Only a correlation id is extracted;
 -- no paths, commands, or executable data are ever read from it.
@@ -306,6 +309,98 @@ local function apply_transport(action)
   if id then reaper.Main_OnCommand(id, 0) end
 end
 
+-- Build-the-chain: one ReaEQ (high-pass + tone bands set to real values) plus an
+-- ordered rack of allow-listed stock effects, all in a single undo block. The
+-- only multi-step producer-directed write; still scoped, allow-listed, undoable.
+local function write_chain_result(id, status, message, track_name, band_count, fx_count)
+  local payload = json.encode({ version = 1, kind = 'apply-chain-result', requestId = id, status = status,
+    message = tostring(message), trackName = track_name or '', bandCount = band_count or 0, fxCount = fx_count or 0, updatedAt = os.time() * 1000 })
+  local file = io.open(chain_result_file, 'wb')
+  if file then file:write(payload); file:close() end
+end
+
+local function read_chain_request()
+  local file = io.open(chain_request_file, 'rb')
+  if not file then return nil end
+  local content = file:read(8192)
+  file:close()
+  if not content or not content:find('"kind":"apply-chain"', 1, true) then return nil end
+  local id = content:match('"requestId":"([%w%-]+)"')
+  if not id or #id < 8 or #id > 128 then return nil end
+  local track_id = content:match('"trackId":"([%w%-{}]+)"')
+  if not track_id then return nil end
+  local stamp = content:match('"requestedAt":(%d+)')
+  if stamp and math.abs(os.time() * 1000 - tonumber(stamp)) > 20000 then return nil end
+  local hpf = tonumber(content:match('"hpf":(%d+%.?%d*)'))
+  local profile = content:match('"profile":"([%w %%&/%-]*)"') or 'vocal'
+  local bands = {}
+  local bstr = content:match('"bands":%[(.-)%]')
+  if bstr then
+    for obj in bstr:gmatch('{(.-)}') do
+      local f = tonumber(obj:match('"f":(%-?%d+%.?%d*)'))
+      local g = tonumber(obj:match('"g":(%-?%d+%.?%d*)'))
+      local q = tonumber(obj:match('"q":(%-?%d+%.?%d*)'))
+      if f and g and q and f >= 20 and f <= 24000 and g >= -36 and g <= 36 and q >= 0.1 and q <= 10 then
+        bands[#bands + 1] = { f = f, g = g, q = q }
+        if #bands >= 16 then break end
+      end
+    end
+  end
+  local fx = {}
+  local fstr = content:match('"fx":%[(.-)%]')
+  if fstr then
+    for name in fstr:gmatch('"(%a+)"') do
+      if FX_ALLOWED[name] then fx[#fx + 1] = name; if #fx >= 6 then break end end
+    end
+  end
+  return { id = id, trackId = track_id, hpf = hpf, bands = bands, fx = fx, profile = profile }
+end
+
+local function apply_chain(req)
+  local track = find_track_by_guid(req.trackId)
+  if not track then
+    write_chain_result(req.id, 'error', 'Could not find the track to build on. Select it in REAPER, then try again.', '', 0, 0)
+    return
+  end
+  local _, track_name = reaper.GetTrackName(track, '')
+  local bands_set, fx_added = 0, 0
+  reaper.Undo_BeginBlock2(0)
+  local ok, err = pcall(function()
+    if (req.hpf and req.hpf > 0) or #req.bands > 0 then
+      local eq = reaper.TrackFX_AddByName(track, 'ReaEQ', false, -1)
+      if eq < 0 then error('ReaEQ is not available in this REAPER install.') end
+      pcall(function() reaper.TrackFX_SetNamedConfigParm(track, eq, 'renamed_name', 'Cadenzai EQ') end)
+      if req.hpf and req.hpf > 0 then
+        pcall(function()
+          reaper.TrackFX_SetEQParam(track, eq, 0, 0, 0, req.hpf, false) -- bandtype 0 = high-pass, param 0 = freq
+          reaper.TrackFX_SetEQBandEnabled(track, eq, 0, 0, true)
+        end)
+      end
+      for i = 1, #req.bands do
+        local b = req.bands[i]
+        local bi = i - 1
+        reaper.TrackFX_SetEQParam(track, eq, 2, bi, 0, b.f, false)
+        reaper.TrackFX_SetEQParam(track, eq, 2, bi, 1, b.g, false)
+        reaper.TrackFX_SetEQParam(track, eq, 2, bi, 2, b.q, false)
+        pcall(function() reaper.TrackFX_SetEQBandEnabled(track, eq, 2, bi, true) end)
+        bands_set = bands_set + 1
+      end
+    end
+    for i = 1, #req.fx do
+      if FX_ALLOWED[req.fx[i]] then
+        local fx = reaper.TrackFX_AddByName(track, req.fx[i], false, -1)
+        if fx >= 0 then fx_added = fx_added + 1 end
+      end
+    end
+  end)
+  reaper.Undo_EndBlock2(0, 'Cadenzai: build ' .. req.profile .. ' chain', -1)
+  if ok then
+    write_chain_result(req.id, 'applied', 'Built the chain: Cadenzai EQ (' .. bands_set .. ' bands) + ' .. fx_added .. ' effect(s).', track_name, bands_set, fx_added)
+  else
+    write_chain_result(req.id, 'error', err, track_name, 0, 0)
+  end
+end
+
 local function quote(value)
   return '"' .. tostring(value):gsub('[%z\1-\31\\"]', function(c)
     return string.format('\\u%04x', string.byte(c))
@@ -413,6 +508,14 @@ local function tick()
       last_transport = transport.stamp
       os.remove(transport_file)
       pcall(apply_transport, transport.action)
+    end
+    -- Build-the-chain: one ReaEQ + an ordered FX rack, in a single undo block.
+    local chain = read_chain_request()
+    if chain and chain.id ~= last_chain then
+      last_chain = chain.id
+      os.remove(chain_request_file)
+      local cok, cerr = pcall(apply_chain, chain)
+      if not cok then write_chain_result(chain.id, 'error', cerr, '', 0, 0) end
     end
     -- One analysis at a time; a new request id starts a read-only measurement
     -- of whatever is selected in REAPER at this moment.
