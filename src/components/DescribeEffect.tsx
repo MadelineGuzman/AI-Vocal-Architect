@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
-import { Wand2, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Wand2, Loader2, CheckCircle2, AlertTriangle, Send } from 'lucide-react';
 import { planEffect } from '../lib/describeEffect';
+import { useProposalStore } from '../store/proposalStore';
 
 // Describe-to-effect: say what you want in plain language; Cadenzai figures out
 // which REAPER stock plugin that is and, only on your click, adds it to the
@@ -8,9 +9,25 @@ import { planEffect } from '../lib/describeEffect';
 export function DescribeEffect({ track }: { track: { id: string; name: string } | null }) {
   const [desc, setDesc] = useState('');
   const [apply, setApply] = useState<{ phase: 'idle' | 'sending' | 'waiting' | 'applied' | 'error'; message: string }>({ phase: 'idle', message: '' });
+  const [proposed, setProposed] = useState(false);
   const applyIdRef = useRef<string | null>(null);
+  const propose = useProposalStore(s => s.propose);
   const plan = planEffect(desc, track?.name ?? 'the track');
   const busy = apply.phase === 'sending' || apply.phase === 'waiting';
+
+  const onPropose = () => {
+    if (!track || !plan) return;
+    propose({
+      label: `Add ${plan.title.toLowerCase()} to ${track.name}`,
+      detail: plan.knobs,
+      from: 'Collaborator',
+      trackName: track.name,
+      endpoint: '/api/reaper/apply-fx',
+      body: { trackId: track.id, fx: plan.fx },
+    });
+    setProposed(true);
+    window.setTimeout(() => setProposed(false), 2800);
+  };
 
   const clearApply = () => { applyIdRef.current = null; setApply({ phase: 'idle', message: '' }); };
 
@@ -61,13 +78,19 @@ export function DescribeEffect({ track }: { track: { id: string; name: string } 
                       className="rounded bg-amber-500 px-2.5 py-1 text-[11px] font-semibold text-zinc-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50">
                       Add it in REAPER
                     </button>
+                    <button onClick={onPropose} disabled={busy}
+                      className="flex items-center gap-1 rounded border border-zinc-700 px-2.5 py-1 text-[11px] font-medium text-zinc-300 hover:border-zinc-600 disabled:cursor-not-allowed disabled:opacity-50">
+                      <Send size={12} /> Propose
+                    </button>
                     {busy
                       ? <span className="flex items-center gap-1.5 text-cyan-300"><Loader2 size={13} className="animate-spin" /> Adding it in REAPER…</span>
                       : apply.phase === 'applied'
                         ? <span className="flex items-center gap-1.5 text-green-400"><CheckCircle2 size={13} /> {apply.message} It’s on {track.name} at its default — dial the targets above to get the sound, or Ctrl+Z in REAPER to undo.</span>
                         : apply.phase === 'error'
                           ? <span className="flex items-center gap-1.5 text-amber-300"><AlertTriangle size={13} /> {apply.message}</span>
-                          : <span className="text-zinc-500">Adds just this one effect, only when you click — undoable in REAPER.</span>}
+                          : proposed
+                            ? <span className="flex items-center gap-1.5 text-amber-300"><Send size={13} /> Proposed — it’ll wait for approval in the queue at the top.</span>
+                            : <span className="text-zinc-500">Add it now, or <span className="text-zinc-400">Propose</span> it for the producer to approve — either way, undoable in REAPER.</span>}
                   </div>
                 </div>
               : <p className="mt-2 text-[11px] text-zinc-500">So far I can add <span className="text-zinc-300">echo</span>, <span className="text-zinc-300">reverb</span>, or <span className="text-zinc-300">compression</span>. Try “add an echo”. (Exact settings and more effects are coming.)</p>)}
