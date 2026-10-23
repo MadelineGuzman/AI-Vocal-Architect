@@ -1,8 +1,8 @@
 {
-  // Cadenzai collaboration relay — Cloudflare Worker + Durable Object.
-  // Rename "name" if/when the product is renamed (e.g. "ally-relay").
+  // Veia collaboration relay — Cloudflare Worker + Durable Object.
+  // Named for the product (Veia). Update "name" here if the product is renamed again.
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "cadenzai-relay",
+  "name": "veia-relay",
   "main": "src/index.ts",
   "compatibility_date": "2025-06-01",
   "observability": { "enabled": true },

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { SkipBack, Play, Pause, Square, Circle, Repeat, Trash2 } from 'lucide-react';
+import { sendReaperCommand } from '../lib/reaperCommand';
 
 // Transport control: drive REAPER's playback and recording from Cadenzai, plus
 // a reversible "delete last take". Each button fires one allow-listed action
@@ -28,9 +29,7 @@ export function Transport({ connected, transport }: { connected: boolean; transp
     setFlash(action);
     setError(false);
     window.setTimeout(() => setFlash(f => (f === action ? null : f)), 250);
-    fetch('/api/reaper/transport', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) })
-      .then(r => { if (!r.ok) setError(true); })
-      .catch(() => setError(true));
+    void sendReaperCommand('/api/reaper/transport', { action }).then(r => { if (!r.ok) setError(true); }); // local bridge or relay queue, by session role
   };
 
   const onDelete = () => {

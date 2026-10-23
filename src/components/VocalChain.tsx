@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
-import { Sparkles, Copy, Check, Wrench, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Sparkles, Copy, Check, Wrench, Loader2, CheckCircle2, AlertTriangle, Send } from 'lucide-react';
 import { generateChain, chainToText, CHAIN_ORDER, PRESET_OPTIONS, PLUGIN_MAP } from '../lib/vocalChain';
+import { sendReaperCommand } from '../lib/reaperCommand';
 
 // Vocal Architect: type a vibe/style → a full DAW-aware vocal chain (EQ, comp,
 // de-ess, saturation, delay, reverb) with settings and the "why" + "listen for".
@@ -15,7 +16,7 @@ export function VocalChain({ track }: { track: { id: string; name: string } | nu
   const [intensity, setIntensity] = useState(5);
   const [daw, setDaw] = useState('REAPER');
   const [copied, setCopied] = useState(false);
-  const [build, setBuild] = useState<{ phase: 'idle' | 'sending' | 'waiting' | 'applied' | 'error'; message: string }>({ phase: 'idle', message: '' });
+  const [build, setBuild] = useState<{ phase: 'idle' | 'sending' | 'waiting' | 'applied' | 'sent' | 'error'; message: string }>({ phase: 'idle', message: '' });
   const buildIdRef = useRef<string | null>(null);
 
   const chain = useMemo(() => (style.trim() ? generateChain({ style, daw, intensity }) : null), [style, daw, intensity]);
@@ -39,17 +40,15 @@ export function VocalChain({ track }: { track: { id: string; name: string } | nu
     }).catch(() => { if (buildIdRef.current === id && Date.now() < deadline) setTimeout(() => pollChain(id, deadline), 500); else setBuild({ phase: 'error', message: 'Could not reach the local server.' }); });
   };
 
-  const onBuild = () => {
+  const onBuild = async () => {
     if (!track || !chain || buildBusy) return;
     const bands = chain.eq.moves.map(m => ({ f: Math.round(m.frequency), g: Math.round(m.gain * 10) / 10, q: m.q }));
     setBuild({ phase: 'sending', message: '' });
-    fetch('/api/reaper/apply-chain', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trackId: track.id, hpf: chain.eq.hpf, bands, fx: ['ReaComp', 'ReaDelay', 'ReaVerbate'], profile: chain.profile }) })
-      .then(async r => {
-        const b = await r.json().catch(() => ({})) as { requestId?: string; error?: string };
-        if (r.ok && b.requestId) { buildIdRef.current = b.requestId; setBuild({ phase: 'waiting', message: '' }); pollChain(b.requestId, Date.now() + 9000); }
-        else setBuild({ phase: 'error', message: b.error || 'REAPER could not accept the chain.' });
-      })
-      .catch(() => setBuild({ phase: 'error', message: 'Could not reach the local server.' }));
+    const res = await sendReaperCommand('/api/reaper/apply-chain', { trackId: track.id, hpf: chain.eq.hpf, bands, fx: ['ReaComp', 'ReaDelay', 'ReaVerbate'], profile: chain.profile });
+    // Remote (joined): queued to the engineer's bridge; no echo over the relay.
+    if (res.remote) { setBuild({ phase: res.ok ? 'sent' : 'error', message: res.ok ? '' : (res.error ?? 'Could not reach the session.') }); return; }
+    if (res.ok && res.requestId) { buildIdRef.current = res.requestId; setBuild({ phase: 'waiting', message: '' }); pollChain(res.requestId, Date.now() + 9000); }
+    else setBuild({ phase: 'error', message: res.error || 'REAPER could not accept the chain.' });
   };
 
   return (
@@ -106,6 +105,8 @@ export function VocalChain({ track }: { track: { id: string; name: string } | nu
                 ? <span className="flex items-center gap-1.5 text-cyan-300"><Loader2 size={13} className="animate-spin" /> Building the chain on {track.name} in REAPER…</span>
                 : build.phase === 'applied'
                   ? <span className="flex items-center gap-1.5 text-green-400"><CheckCircle2 size={13} /> {build.message} The EQ is dialed in; set the comp / delay / reverb to the targets below. Ctrl+Z in REAPER undoes the whole thing.</span>
+                  : build.phase === 'sent'
+                    ? <span className="flex items-center gap-1.5 text-green-400"><Send size={13} /> Sent to the session — the chain will build on {track.name} on the engineer’s REAPER.</span>
                   : build.phase === 'error'
                     ? <span className="flex items-center gap-1.5 text-amber-300"><AlertTriangle size={13} /> {build.message}</span>
                     : <span className="text-zinc-500">“Build in REAPER” lands the <span className="text-zinc-400">EQ with real values</span> + drops in ReaComp, ReaDelay & ReaVerbate in order — one undo block. You dial the time-based FX to the targets below.</span>}

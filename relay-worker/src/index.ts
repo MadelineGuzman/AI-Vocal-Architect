@@ -1,10 +1,10 @@
 import { DurableObject } from 'cloudflare:workers';
 
-// Cadenzai collaboration relay — Cloudflare Worker + Durable Object version of
+// Veia collaboration relay — Cloudflare Worker + Durable Object version of
 // the Node relay in relay/ (relay/sessions.ts + relay/server.ts). One Durable
 // Object instance per session holds the engineer's published STATE and the
 // artist's QUEUE of allow-listed commands. It never executes anything and never
-// touches REAPER; the engineer's own Cadenzai drains the queue and runs each
+// touches REAPER; the engineer's own Veia drains the queue and runs each
 // command locally through the loopback bridge, where it is re-validated. Security
 // = a long per-session token (the join secret, gate on every op), a fixed command
 // allow-list, size/queue caps, and idle-session expiry via a DO alarm.

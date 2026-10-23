@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { MousePointerClick } from 'lucide-react';
+import { sendReaperCommand } from '../lib/reaperCommand';
 
 // Tap-to-point clip timeline: a clean, schematic view of the focused track's
 // clips (not a pixel mirror of REAPER). Tapping a clip highlights it locally and
@@ -20,7 +21,7 @@ export function ClipTimeline({ clips, connected }: { clips?: Clip[]; connected: 
 
   const nudge = (deltaSeconds: number) => {
     if (!selected) return;
-    fetch('/api/reaper/nudge-item', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemId: selected, deltaSeconds }) }).catch(() => { /* bridge no-op on failure */ });
+    void sendReaperCommand('/api/reaper/nudge-item', { itemId: selected, deltaSeconds }); // local bridge or relay queue, by session role
     const ms = Math.round(deltaSeconds * 1000);
     setNudgeMsg(`Nudged ${ms < 0 ? '◄' : '►'} ${Math.abs(ms)} ms`);
     window.setTimeout(() => setNudgeMsg(null), 1500);
@@ -34,7 +35,7 @@ export function ClipTimeline({ clips, connected }: { clips?: Clip[]; connected: 
   const tap = (c: Clip) => {
     setSelected(c.id);
     setTapped(c.name || 'that clip');
-    fetch('/api/reaper/select-item', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemId: c.id }) }).catch(() => { /* engineer still sees nothing worse than no-op */ });
+    void sendReaperCommand('/api/reaper/select-item', { itemId: c.id }); // local bridge or relay queue, by session role
   };
 
   return (

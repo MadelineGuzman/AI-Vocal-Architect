@@ -2,13 +2,14 @@ import { useRef, useState } from 'react';
 import { Wand2, Loader2, CheckCircle2, AlertTriangle, Send } from 'lucide-react';
 import { planEffect } from '../lib/describeEffect';
 import { useProposalStore } from '../store/proposalStore';
+import { sendReaperCommand } from '../lib/reaperCommand';
 
 // Describe-to-effect: say what you want in plain language; Cadenzai figures out
 // which REAPER stock plugin that is and, only on your click, adds it to the
 // selected track (one undo step, reversible). Read-only until you click Add.
 export function DescribeEffect({ track }: { track: { id: string; name: string } | null }) {
   const [desc, setDesc] = useState('');
-  const [apply, setApply] = useState<{ phase: 'idle' | 'sending' | 'waiting' | 'applied' | 'error'; message: string }>({ phase: 'idle', message: '' });
+  const [apply, setApply] = useState<{ phase: 'idle' | 'sending' | 'waiting' | 'applied' | 'sent' | 'error'; message: string }>({ phase: 'idle', message: '' });
   const [proposed, setProposed] = useState(false);
   const applyIdRef = useRef<string | null>(null);
   const propose = useProposalStore(s => s.propose);
@@ -43,16 +44,15 @@ export function DescribeEffect({ track }: { track: { id: string; name: string } 
     }).catch(() => { if (applyIdRef.current === id && Date.now() < deadline) setTimeout(() => pollFx(id, deadline), 500); else setApply({ phase: 'error', message: 'Could not reach the local server.' }); });
   };
 
-  const onApply = () => {
+  const onApply = async () => {
     if (!track || !plan || busy) return;
     setApply({ phase: 'sending', message: '' });
-    fetch('/api/reaper/apply-fx', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trackId: track.id, fx: plan.fx }) })
-      .then(async r => {
-        const b = await r.json().catch(() => ({})) as { requestId?: string; error?: string };
-        if (r.ok && b.requestId) { applyIdRef.current = b.requestId; setApply({ phase: 'waiting', message: '' }); pollFx(b.requestId, Date.now() + 9000); }
-        else setApply({ phase: 'error', message: b.error || 'REAPER could not accept the effect.' });
-      })
-      .catch(() => setApply({ phase: 'error', message: 'Could not reach the local server.' }));
+    const res = await sendReaperCommand('/api/reaper/apply-fx', { trackId: track.id, fx: plan.fx });
+    // Remote (joined): the command is queued to the engineer's bridge; no result
+    // echo comes back over the relay, so confirm it as "sent", not "applied".
+    if (res.remote) { setApply({ phase: res.ok ? 'sent' : 'error', message: res.ok ? '' : (res.error ?? 'Could not reach the session.') }); return; }
+    if (res.ok && res.requestId) { applyIdRef.current = res.requestId; setApply({ phase: 'waiting', message: '' }); pollFx(res.requestId, Date.now() + 9000); }
+    else setApply({ phase: 'error', message: res.error || 'REAPER could not accept the effect.' });
   };
 
   return (
@@ -86,6 +86,8 @@ export function DescribeEffect({ track }: { track: { id: string; name: string } 
                       ? <span className="flex items-center gap-1.5 text-cyan-300"><Loader2 size={13} className="animate-spin" /> Adding it in REAPER…</span>
                       : apply.phase === 'applied'
                         ? <span className="flex items-center gap-1.5 text-green-400"><CheckCircle2 size={13} /> {apply.message} It’s on {track.name} at its default — dial the targets above to get the sound, or Ctrl+Z in REAPER to undo.</span>
+                        : apply.phase === 'sent'
+                          ? <span className="flex items-center gap-1.5 text-green-400"><Send size={13} /> Sent to the session — it’ll land on {track.name} on the engineer’s REAPER.</span>
                         : apply.phase === 'error'
                           ? <span className="flex items-center gap-1.5 text-amber-300"><AlertTriangle size={13} /> {apply.message}</span>
                           : proposed

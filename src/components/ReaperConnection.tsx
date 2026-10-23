@@ -5,11 +5,15 @@ import { Transport } from './Transport';
 import { Proposals } from './Proposals';
 import { VocalChain } from './VocalChain';
 import { ArtistView } from './ArtistView';
+import { RemoteSession } from './RemoteSession';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Cable } from 'lucide-react';
 import type { ReaperState, AnalyzeRequestResponse } from '../types/reaper';
 import { useProjectStore } from '../store/projectStore';
 import { useModeStore } from '../store/modeStore';
+import { useSessionStore } from '../store/sessionStore';
+import { useRelayHost } from '../lib/useRelayHost';
+import { fetchState } from '../lib/relayClient';
 
 const initial: ReaperState = { status: 'waiting', snapshot: null, message: 'Checking local connection…' };
 
@@ -38,6 +42,9 @@ export function ReaperConnection() {
   const setIsImportModalOpen = useProjectStore(s => s.setIsImportModalOpen);
   const mode = useModeStore(s => s.mode);
   const setMode = useModeStore(s => s.setMode);
+  const sessionRole = useSessionStore(s => s.role);
+  const relaySession = useSessionStore(s => s.session);
+  useRelayHost(); // when hosting, bridge the relay to the local REAPER
   const [state, setState] = useState<ReaperState>(initial);
   const [request, setRequest] = useState<{ id: string; startedAt: number } | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
@@ -52,10 +59,12 @@ export function ReaperConnection() {
   useEffect(() => {
     let stopped = false;
     let timer: ReturnType<typeof setTimeout>;
-    let controller: AbortController;
-    const poll = async () => {
+    let controller: AbortController | undefined;
+
+    // Local/hosting: poll the loopback bridge directly.
+    const pollLocal = async () => {
       controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2500);
+      const timeout = setTimeout(() => controller!.abort(), 2500);
       try {
         const response = await fetch('/api/reaper/state', { signal: controller.signal, cache: 'no-store' });
         if (!response.ok) throw new Error('Connection request failed');
@@ -65,12 +74,28 @@ export function ReaperConnection() {
         if (!stopped) setState(previous => ({ ...previous, status: 'error', message: 'Local server unavailable — selection may be outdated' }));
       } finally {
         clearTimeout(timeout);
-        if (!stopped) { setClock(value => value + 1); timer = setTimeout(poll, 500); }
+        if (!stopped) { setClock(value => value + 1); timer = setTimeout(pollLocal, 500); }
       }
     };
-    void poll();
+
+    // Joined (artist on another device): read the engineer's published snapshot
+    // from the relay. Same ReaperState shape, so the whole UI just works.
+    const pollRemote = async () => {
+      try {
+        const next = await fetchState<ReaperState>(relaySession!);
+        if (!stopped) setState(next ?? { status: 'waiting', snapshot: null, message: 'Waiting for the engineer to connect REAPER…' });
+      } catch (e) {
+        if (!stopped) setState(previous => ({ ...previous, status: 'error', message: e instanceof Error && e.message === 'unauthorized' ? 'The session ended or the code expired.' : 'Can’t reach the session right now — retrying…' }));
+      } finally {
+        if (!stopped) { setClock(value => value + 1); timer = setTimeout(pollRemote, 900); }
+      }
+    };
+
+    if (sessionRole === 'joined' && relaySession) void pollRemote();
+    else void pollLocal();
+
     return () => { stopped = true; clearTimeout(timer); controller?.abort(); };
-  }, []);
+  }, [sessionRole, relaySession]);
 
   // Keep each analyzed track's tone curve (newest first, one per track, max 3)
   // so the frequency view can overlay two tracks even across separate analyses.
@@ -169,8 +194,9 @@ export function ReaperConnection() {
       {/* Roomy results dashboard. */}
       <div className="flex-1 overflow-y-auto">
         {mode === 'artist'
-          ? <div className="p-6"><ArtistView track={connected ? effectTrack : null} connected={connected} transport={snapshot?.transport} clips={snapshot?.clips} /></div>
+          ? <div className="space-y-5 p-6"><RemoteSession /><ArtistView track={connected ? effectTrack : null} connected={connected} transport={snapshot?.transport} clips={snapshot?.clips} /></div>
           : <div className="mx-auto max-w-6xl p-6">
+              <div className="mb-5"><RemoteSession /></div>
               <Proposals connected={connected} />
               <div className="mb-5 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3"><Transport connected={connected} transport={snapshot?.transport} /></div>
               <ReaperLevels state={state} analyze={analyze} spectra={spectra} onClearSpectra={() => setSpectra([])} />

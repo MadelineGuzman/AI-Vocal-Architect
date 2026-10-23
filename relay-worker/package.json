@@ -1,5 +1,5 @@
 {
-  "name": "cadenzai-relay-worker",
+  "name": "veia-relay-worker",
   "private": true,
   "version": "0.1.0",
   "scripts": {
