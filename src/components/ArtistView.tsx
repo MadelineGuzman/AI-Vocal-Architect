@@ -2,16 +2,18 @@ import { Mic } from 'lucide-react';
 import { Transport } from './Transport';
 import { DescribeEffect } from './DescribeEffect';
 import { VocalChain } from './VocalChain';
+import { ClipTimeline } from './ClipTimeline';
 
 // Artist mode: a focused, DAW-free view a collaborator can drive directly —
 // run the transport, record and scrap takes, ask for a sound in plain language,
 // pick a vibe. No analysis panels, no approval step; the artist just acts. The
 // engineer sets up the session (selects/arms the track) and holds the deep
 // technical layer in Engineer mode.
-export function ArtistView({ track, connected, transport }: {
+export function ArtistView({ track, connected, transport, clips }: {
   track: { id: string; name: string } | null;
   connected: boolean;
   transport?: { playing: boolean; recording: boolean; looping: boolean };
+  clips?: Array<{ id: string; start: number; len: number; name: string; color: string }>;
 }) {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -24,6 +26,9 @@ export function ArtistView({ track, connected, transport }: {
         {!connected && <p className="mt-2 text-xs text-amber-300">Waiting for REAPER — ask your engineer to start the Cadenzai bridge.</p>}
         {connected && !track && <p className="mt-2 text-xs text-zinc-500">Ask your engineer to select the track you’re working on.</p>}
       </div>
+
+      {/* Point at clips: tap one to light it up in REAPER. */}
+      <ClipTimeline clips={clips} connected={connected} />
 
       {/* Run the session: loop, record, play, stop, scrap a take. (Transport has no card of its own.) */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">

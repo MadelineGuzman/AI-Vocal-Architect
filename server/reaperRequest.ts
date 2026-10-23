@@ -151,6 +151,35 @@ export function createTransportHandler(deps: { readConnection: () => Promise<{ s
   };
 }
 
+// Tap-to-point: select/highlight the clip the collaborator tapped so the engineer
+// sees which one they mean. Navigation only (selection + edit cursor), no edits —
+// fire-and-forget like the cursor move. The item id is a REAPER GUID.
+export function selectItemPath() { return path.join(path.dirname(bridgePath()), 'select-item.json'); }
+
+export async function writeSelectItemRequest(itemId: string, now = Date.now(), filename = selectItemPath()): Promise<void> {
+  if (!isTrackId(itemId)) throw new Error('Invalid item id');
+  const body = JSON.stringify({ version: 1, kind: 'select-item', itemId, requestedAt: now });
+  await writeFile(filename, body, { encoding: 'utf8' });
+}
+
+export function createSelectItemHandler(deps: { readConnection: () => Promise<{ status: string }>; selectFile?: string; now?: () => number }) {
+  const selectFile = deps.selectFile ?? selectItemPath();
+  const now = deps.now ?? Date.now;
+  return async (req: Request, res: Response): Promise<void> => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const itemId = (req.body as { itemId?: unknown } | undefined)?.itemId;
+      if (!isTrackId(itemId)) { res.status(400).json({ error: 'Invalid item.' }); return; }
+      const connection = await deps.readConnection();
+      if (connection.status !== 'connected') { res.status(409).json({ error: 'REAPER is not connected.' }); return; }
+      await writeSelectItemRequest(itemId, now(), selectFile);
+      res.json({ ok: true });
+    } catch {
+      res.status(500).json({ error: 'The select request could not be sent.' });
+    }
+  };
+}
+
 // --- Producer-directed EQ write-back (Gate 2) --------------------------------
 // The one place Cadenzai changes the project, and only on an explicit click. The
 // request carries the target track's GUID and a small set of bell bands

@@ -37,6 +37,9 @@ try {
   assert.equal('privatePath' in validateSnapshot({ ...sample, privatePath: 'secret' }, now), false);
   assert.throws(() => validateSnapshot({ ...sample, transport: { playing: 'x', recording: false, looping: false } }, now), 'invalid transport rejected');
   assert.equal(validateSnapshot({ ...sample, transport: { playing: true, recording: false, looping: true } }, now).transport?.looping, true);
+  assert.throws(() => validateSnapshot({ ...sample, clips: [{ id: '{A}', start: 0, len: 1, name: 'x', color: 'not-a-color' }] }, now), 'invalid clip colour rejected');
+  assert.throws(() => validateSnapshot({ ...sample, clips: [{ id: '{A}', start: 0, len: -1, name: 'x', color: '#ff8000' }] }, now), 'negative clip length rejected');
+  assert.equal(validateSnapshot({ ...sample, clips: [{ id: '{A}', start: 2.5, len: 1, name: 'Hook', color: '#ff8000' }] }, now).clips?.[0].name, 'Hook');
   now += 5000;
   await writeFile(filename, 'x'.repeat(131073));
   assert.equal((await reader()).status, 'error');
@@ -137,6 +140,16 @@ try {
     assert.equal(chainResult.bandCount, 2);
     assert.equal(chainResult.fxCount, 2);
     console.log(chainLines[1]);
+
+    // The continuous bridge also publishes the focused track's clips…
+    const clipsRun = spawnSync('lua', ['tests/reaper-bridge-clips.lua'], { encoding: 'utf8' });
+    assert.equal(clipsRun.status, 0, clipsRun.stderr);
+    console.log(clipsRun.stdout.trim());
+
+    // …and selects/highlights the clip the artist tapped (navigation only).
+    const selectRun = spawnSync('lua', ['tests/reaper-bridge-select-item.lua'], { encoding: 'utf8' });
+    assert.equal(selectRun.status, 0, selectRun.stderr);
+    console.log(selectRun.stdout.trim());
   }
   console.log('REAPER snapshot, expiry, recovery, size, schema, Unicode and HTTP origin tests passed.');
 } finally { await rm(folder, { recursive: true, force: true }); }

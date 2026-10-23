@@ -23,6 +23,7 @@ local auto_result_file = directory .. '/auto-result.json'
 local transport_file = directory .. '/transport.json'
 local chain_request_file = directory .. '/chain-request.json'
 local chain_result_file = directory .. '/chain-result.json'
+local select_item_file = directory .. '/select-item.json'
 local json = dofile(script_dir .. 'lib/json.lua')
 local metrics = dofile(script_dir .. 'lib/levels.lua')
 local analyze = dofile(script_dir .. 'lib/analyze.lua')
@@ -39,6 +40,7 @@ local last_fx = nil
 local last_auto = nil
 local last_transport = nil
 local last_chain = nil
+local last_select = nil
 
 -- Read the single approved request file. Only a correlation id is extracted;
 -- no paths, commands, or executable data are ever read from it.
@@ -401,6 +403,41 @@ local function apply_chain(req)
   end
 end
 
+-- Navigation only: select/highlight the item the artist tapped, by GUID, so the
+-- engineer sees which clip they mean. Selection + moving the edit cursor is a
+-- view action — no audio, FX, or project edits.
+local function read_select_item()
+  local file = io.open(select_item_file, 'rb')
+  if not file then return nil end
+  local content = file:read(512)
+  file:close()
+  if not content or not content:find('"kind":"select-item"', 1, true) then return nil end
+  local item_id = content:match('"itemId":"([%w%-{}]+)"')
+  if not item_id then return nil end
+  local stamp = content:match('"requestedAt":(%d+)')
+  if stamp and math.abs(os.time() * 1000 - tonumber(stamp)) > 20000 then return nil end
+  return { itemId = item_id, stamp = stamp }
+end
+
+local function apply_select_item(item_id)
+  local active = reaper.EnumProjects(-1, '')
+  if not active then return end
+  local count = reaper.CountMediaItems(active)
+  for i = 0, math.min(count, 100000) - 1 do
+    local item = reaper.GetMediaItem(active, i)
+    if item then
+      local _, iguid = reaper.GetSetMediaItemInfo_String(item, 'GUID', '', false)
+      if iguid == item_id then
+        reaper.SelectAllMediaItems(active, false)
+        reaper.SetMediaItemSelected(item, true)
+        reaper.SetEditCurPos(reaper.GetMediaItemInfo_Value(item, 'D_POSITION'), true, false)
+        reaper.UpdateArrange()
+        return
+      end
+    end
+  end
+end
+
 local function quote(value)
   return '"' .. tostring(value):gsub('[%z\1-\31\\"]', function(c)
     return string.format('\\u%04x', string.byte(c))
@@ -424,6 +461,7 @@ local function capture()
   local name = reaper.GetProjectName(active, '')
   if name == '' then name = 'Unsaved project' end
   local tracks = {}
+  local focused, nonmaster = nil, 0
   local count = reaper.CountSelectedTracks2(active, true)
   if count > 512 then error('Select at most 512 tracks for this bridge.') end
   for i = 0, count - 1 do
@@ -432,6 +470,7 @@ local function capture()
       local _, track_name = reaper.GetTrackName(track, '')
       local number = math.max(0, math.floor(reaper.GetMediaTrackInfo_Value(track, 'IP_TRACKNUMBER')))
       local master = track == reaper.GetMasterTrack(active)
+      if not master then nonmaster = nonmaster + 1; focused = track end
       tracks[#tracks + 1] = '{"id":' .. quote(reaper.GetTrackGUID(track)) ..
         ',"name":' .. quote(track_name) .. ',"number":' .. number .. ',"isMaster":' .. tostring(master) .. '}'
     end
@@ -443,8 +482,31 @@ local function capture()
   local looping = false
   pcall(function() looping = reaper.GetSetRepeat(-1) == 1 end)
   local transport = '{"playing":' .. tostring((ps % 2) >= 1) .. ',"recording":' .. tostring((math.floor(ps / 4) % 2) >= 1) .. ',"looping":' .. tostring(looping) .. '}'
+  -- The focused track's clips (items) for the tap-to-point timeline. Read-only and
+  -- pcall-guarded so older REAPER / the tests simply report no clips.
+  local clips = {}
+  if nonmaster == 1 and focused then
+    pcall(function()
+      local n = reaper.CountTrackMediaItems(focused)
+      for i = 0, math.min(n, 300) - 1 do
+        local item = reaper.GetTrackMediaItem(focused, i)
+        if item then
+          local pos = reaper.GetMediaItemInfo_Value(item, 'D_POSITION')
+          local len = reaper.GetMediaItemInfo_Value(item, 'D_LENGTH')
+          local _, iguid = reaper.GetSetMediaItemInfo_String(item, 'GUID', '', false)
+          local take = reaper.GetActiveTake(item)
+          local iname = take and reaper.GetTakeName(take) or ''
+          local r, g, b = reaper.ColorFromNative(reaper.GetDisplayedMediaItemColor(item))
+          local hex = string.format('#%02x%02x%02x', r % 256, g % 256, b % 256)
+          clips[#clips + 1] = '{"id":' .. quote(iguid) .. ',"start":' .. string.format('%.4f', pos) ..
+            ',"len":' .. string.format('%.4f', len) .. ',"name":' .. quote(iname) .. ',"color":' .. quote(hex) .. '}'
+        end
+      end
+    end)
+  end
   return '"revision":' .. reaper.GetProjectStateChangeCount(active) .. ',"project":{"sessionId":' .. quote(projects[key]) .. ',"name":' .. quote(name) ..
-    ',"saved":' .. tostring(project_file ~= '') .. '},"tracks":[' .. table.concat(tracks, ',') .. '],"transport":' .. transport
+    ',"saved":' .. tostring(project_file ~= '') .. '},"tracks":[' .. table.concat(tracks, ',') .. '],"transport":' .. transport ..
+    ',"clips":[' .. table.concat(clips, ',') .. ']'
 end
 
 local function tick()
@@ -516,6 +578,13 @@ local function tick()
       os.remove(chain_request_file)
       local cok, cerr = pcall(apply_chain, chain)
       if not cok then write_chain_result(chain.id, 'error', cerr, '', 0, 0) end
+    end
+    -- Tap-to-point: select/highlight the clip the artist tapped (navigation only).
+    local sel = read_select_item()
+    if sel and sel.stamp ~= last_select then
+      last_select = sel.stamp
+      os.remove(select_item_file)
+      pcall(apply_select_item, sel.itemId)
     end
     -- One analysis at a time; a new request id starts a read-only measurement
     -- of whatever is selected in REAPER at this moment.

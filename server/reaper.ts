@@ -36,10 +36,21 @@ export function validateSnapshot(value: unknown, now = Date.now()): ReaperSnapsh
     if (!record(t) || typeof t.playing !== 'boolean' || typeof t.recording !== 'boolean' || typeof t.looping !== 'boolean') throw new Error('Invalid transport');
     transport = { playing: t.playing, recording: t.recording, looping: t.looping };
   }
+  let clips: { id: string; start: number; len: number; name: string; color: string }[] | undefined;
+  if (value.clips !== undefined) {
+    if (!Array.isArray(value.clips) || value.clips.length > 300) throw new Error('Invalid clips');
+    clips = value.clips.map(c => {
+      if (!record(c) || !string(c.id, 128) || !c.id ||
+          typeof c.start !== 'number' || !Number.isFinite(c.start) ||
+          typeof c.len !== 'number' || !Number.isFinite(c.len) || c.len < 0 ||
+          !string(c.name, 512) || !string(c.color, 16) || !/^#[0-9a-fA-F]{6}$/.test(c.color)) throw new Error('Invalid clip');
+      return { id: c.id, start: c.start, len: c.len, name: c.name, color: c.color };
+    });
+  }
   // Explicit projection prevents unknown fields (including paths) escaping to the browser.
   return { version: 1, sessionId: value.sessionId, sequence: Number(value.sequence), updatedAt: value.updatedAt,
     revision: Number.isSafeInteger(value.revision) ? Number(value.revision) : undefined,
-    project: { sessionId: value.project.sessionId, name: value.project.name, saved: value.project.saved }, tracks, transport };
+    project: { sessionId: value.project.sessionId, name: value.project.name, saved: value.project.saved }, tracks, transport, clips };
 }
 
 export function createReaperReader(filename = bridgePath(), clock = Date.now) {

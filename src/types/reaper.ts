@@ -8,6 +8,8 @@ export interface ReaperSnapshot {
   tracks: Array<{ id: string; name: string; number: number; isMaster: boolean }>;
   // Live transport state, so the transport bar can show what REAPER is doing.
   transport?: { playing: boolean; recording: boolean; looping: boolean };
+  // The focused track's clips (items) for the tap-to-point timeline.
+  clips?: Array<{ id: string; start: number; len: number; name: string; color: string }>;
 }
 export interface ReaperState {
   status: 'waiting' | 'connected' | 'disconnected' | 'error';

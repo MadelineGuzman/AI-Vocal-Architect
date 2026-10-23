@@ -3,7 +3,7 @@ import express from 'express';
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, createApplyFxHandler, createApplyAutomationHandler, createTransportHandler, createApplyChainHandler, readPendingRequest, writeAnalyzeRequest, writeEqRequest, readEqResult, writeFxRequest, readFxResult, writeAutomationRequest, readAutomationResult, writeChainRequest, readChainResult, sanitizeChainFx, sanitizeBands, PENDING_REQUEST_MS } from '../server/reaperRequest';
+import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, createApplyFxHandler, createApplyAutomationHandler, createTransportHandler, createApplyChainHandler, createSelectItemHandler, readPendingRequest, writeAnalyzeRequest, writeEqRequest, readEqResult, writeFxRequest, readFxResult, writeAutomationRequest, readAutomationResult, writeChainRequest, readChainResult, sanitizeChainFx, sanitizeBands, PENDING_REQUEST_MS } from '../server/reaperRequest';
 import { localRequestOnly } from '../server/reaper';
 
 const folder = await mkdtemp(path.join(os.tmpdir(), 'cadenzai-request-test-'));
@@ -316,6 +316,36 @@ try {
     await new Promise<void>((resolve, reject) => cserver2.close(error => error ? reject(error) : resolve()));
   }
   console.log('REAPER build-the-chain channel: rack allow-list, module round-trip, validation, disconnected and origin guards passed.');
+
+  // --- POST /api/reaper/select-item (tap-to-point, navigation only) ---
+  const selectFile = path.join(folder, 'select-item.json');
+  let selConn = 'connected';
+  const sapp = express();
+  let sport = 0;
+  sapp.use((req, res, next) => localRequestOnly(sport)(req, res, next));
+  sapp.use(express.json());
+  sapp.post('/api/reaper/select-item', createSelectItemHandler({ readConnection: async () => ({ status: selConn }), selectFile, now: () => 13000 }));
+  const sserver = sapp.listen(0, '127.0.0.1');
+  await new Promise<void>(resolve => sserver.once('listening', resolve));
+  sport = (sserver.address() as { port: number }).port;
+  const surl = 'http://127.0.0.1:' + sport + '/api/reaper/select-item';
+  const shost = '127.0.0.1:' + sport;
+  const spost = (body: unknown, headers: Record<string, string> = {}) =>
+    fetch(surl, { method: 'POST', headers: { Host: shost, Origin: 'http://' + shost, 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await spost({ itemId: '{ITEM-2}' })).status, 200, 'a valid item id is accepted');
+    const written = JSON.parse(await readFile(selectFile, 'utf8')) as { kind: string; itemId: string };
+    assert.equal(written.kind, 'select-item');
+    assert.equal(written.itemId, '{ITEM-2}');
+    assert.equal((await spost({ itemId: 'bad id!' })).status, 400, 'a malformed item id is rejected');
+    selConn = 'disconnected';
+    assert.equal((await spost({ itemId: '{ITEM-2}' })).status, 409, 'rejected when REAPER is not connected');
+    selConn = 'connected';
+    assert.equal((await spost({ itemId: '{ITEM-2}' }, { Origin: 'https://untrusted.example' })).status, 403, 'cross-origin rejected');
+  } finally {
+    await new Promise<void>((resolve, reject) => sserver.close(error => error ? reject(error) : resolve()));
+  }
+  console.log('REAPER select-item (tap-to-point) channel: valid/invalid id, disconnected and origin guards passed.');
 } finally {
   await rm(folder, { recursive: true, force: true });
 }

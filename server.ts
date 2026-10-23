@@ -1,6 +1,6 @@
 import { readLevelReport } from './server/reaperLevels';
 import { createReaperReader, localRequestOnly } from './server/reaper';
-import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, readEqResult, createApplyFxHandler, readFxResult, createApplyAutomationHandler, readAutomationResult, createTransportHandler, createApplyChainHandler, readChainResult } from './server/reaperRequest';
+import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, readEqResult, createApplyFxHandler, readFxResult, createApplyAutomationHandler, readAutomationResult, createTransportHandler, createApplyChainHandler, readChainResult, createSelectItemHandler } from './server/reaperRequest';
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -39,6 +39,9 @@ async function startServer() {
 
   // Transport control: drive play / pause / stop / record / loop from Cadenzai.
   app.post('/api/reaper/transport', createTransportHandler({ readConnection: readReaper }));
+
+  // Tap-to-point: select/highlight the clip the artist tapped (navigation only).
+  app.post('/api/reaper/select-item', createSelectItemHandler({ readConnection: readReaper }));
 
   // Producer-directed EQ write-back: add a single, clearly named ReaEQ on the
   // drawn track — only on an explicit click, and reversible with undo in REAPER.

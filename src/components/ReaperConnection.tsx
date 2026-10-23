@@ -169,7 +169,7 @@ export function ReaperConnection() {
       {/* Roomy results dashboard. */}
       <div className="flex-1 overflow-y-auto">
         {mode === 'artist'
-          ? <div className="p-6"><ArtistView track={connected ? effectTrack : null} connected={connected} transport={snapshot?.transport} /></div>
+          ? <div className="p-6"><ArtistView track={connected ? effectTrack : null} connected={connected} transport={snapshot?.transport} clips={snapshot?.clips} /></div>
           : <div className="mx-auto max-w-6xl p-6">
               <Proposals connected={connected} />
               <div className="mb-5 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3"><Transport connected={connected} transport={snapshot?.transport} /></div>
