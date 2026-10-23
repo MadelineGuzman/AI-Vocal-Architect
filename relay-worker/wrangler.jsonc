@@ -1,0 +1,18 @@
+{
+  // Cadenzai collaboration relay — Cloudflare Worker + Durable Object.
+  // Rename "name" if/when the product is renamed (e.g. "ally-relay").
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cadenzai-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-06-01",
+  "observability": { "enabled": true },
+  "durable_objects": {
+    "bindings": [
+      { "name": "RELAY", "class_name": "RelaySession" }
+    ]
+  },
+  // SQLite-backed Durable Objects — the free-tier storage backend.
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RelaySession"] }
+  ]
+}
