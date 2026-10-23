@@ -6,6 +6,14 @@
   "main": "src/index.ts",
   "compatibility_date": "2025-06-01",
   "observability": { "enabled": true },
+
+  // Custom domain. Requires syzygyint.com to be a zone in this Cloudflare account;
+  // Cloudflare auto-provisions the DNS record + SSL cert on deploy. Remove this
+  // block to fall back to the free <name>.<subdomain>.workers.dev URL.
+  "routes": [
+    { "pattern": "relay.syzygyint.com", "custom_domain": true }
+  ],
+
   "durable_objects": {
     "bindings": [
       { "name": "RELAY", "class_name": "RelaySession" }
