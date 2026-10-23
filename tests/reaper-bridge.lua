@@ -10,7 +10,7 @@ os.time = function() return 1000 + math.floor(now) end
 os.execute = function() return true end  -- do not actually launch the app in tests
 io.open = function(file, mode)
   -- No analysis request or cursor move present in this read-only selection scenario.
-  if mode == 'rb' then assert(file == '/test-only/Cadenzai/reaper-bridge/request.json' or file == '/test-only/Cadenzai/reaper-bridge/cursor.json' or file == '/test-only/Cadenzai/reaper-bridge/eq-request.json' or file == '/test-only/Cadenzai/reaper-bridge/fx-request.json' or file == '/test-only/Cadenzai/reaper-bridge/auto-request.json' or file == '/test-only/Cadenzai/reaper-bridge/transport.json' or file == '/test-only/Cadenzai/reaper-bridge/chain-request.json' or file == '/test-only/Cadenzai/reaper-bridge/select-item.json'); return nil end
+  if mode == 'rb' then assert(file == '/test-only/Cadenzai/reaper-bridge/request.json' or file == '/test-only/Cadenzai/reaper-bridge/cursor.json' or file == '/test-only/Cadenzai/reaper-bridge/eq-request.json' or file == '/test-only/Cadenzai/reaper-bridge/fx-request.json' or file == '/test-only/Cadenzai/reaper-bridge/auto-request.json' or file == '/test-only/Cadenzai/reaper-bridge/transport.json' or file == '/test-only/Cadenzai/reaper-bridge/chain-request.json' or file == '/test-only/Cadenzai/reaper-bridge/select-item.json' or file == '/test-only/Cadenzai/reaper-bridge/nudge-item.json'); return nil end
   assert(file == '/test-only/Cadenzai/reaper-bridge/state.json' and mode == 'wb')
   return { write = function(_, value) payload = value; return true end, close = function() return true end }
 end

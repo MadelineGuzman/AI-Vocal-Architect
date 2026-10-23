@@ -16,6 +16,15 @@ const fmt = (s: number) => {
 export function ClipTimeline({ clips, connected }: { clips?: Clip[]; connected: boolean }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [tapped, setTapped] = useState<string | null>(null);
+  const [nudgeMsg, setNudgeMsg] = useState<string | null>(null);
+
+  const nudge = (deltaSeconds: number) => {
+    if (!selected) return;
+    fetch('/api/reaper/nudge-item', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemId: selected, deltaSeconds }) }).catch(() => { /* bridge no-op on failure */ });
+    const ms = Math.round(deltaSeconds * 1000);
+    setNudgeMsg(`Nudged ${ms < 0 ? '◄' : '►'} ${Math.abs(ms)} ms`);
+    window.setTimeout(() => setNudgeMsg(null), 1500);
+  };
 
   const list = (clips ?? []).slice().sort((a, b) => a.start - b.start);
   const min = list.length ? Math.min(...list.map(c => c.start)) : 0;
@@ -62,6 +71,13 @@ export function ClipTimeline({ clips, connected }: { clips?: Clip[]; connected: 
               <p className="mt-1 text-[11px]">{tapped
                 ? <span className="text-green-400">Pointed at “{tapped}” — it’s highlighted in REAPER.</span>
                 : <span className="text-zinc-500">Tap any clip above.</span>}</p>
+              {selected && <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span className="text-zinc-500">Slide it:</span>
+                {([['◄ 100', -0.1], ['◄ 10', -0.01], ['10 ►', 0.01], ['100 ►', 0.1]] as [string, number][]).map(([lbl, d]) => (
+                  <button key={lbl} onClick={() => nudge(d)} className="rounded border border-zinc-700 px-2 py-0.5 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100">{lbl} ms</button>
+                ))}
+                {nudgeMsg && <span className="ml-1 text-amber-300">{nudgeMsg} — it moves in REAPER.</span>}
+              </div>}
             </>}
     </div>
   );

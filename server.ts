@@ -1,6 +1,6 @@
 import { readLevelReport } from './server/reaperLevels';
 import { createReaperReader, localRequestOnly } from './server/reaper';
-import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, readEqResult, createApplyFxHandler, readFxResult, createApplyAutomationHandler, readAutomationResult, createTransportHandler, createApplyChainHandler, readChainResult, createSelectItemHandler } from './server/reaperRequest';
+import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, readEqResult, createApplyFxHandler, readFxResult, createApplyAutomationHandler, readAutomationResult, createTransportHandler, createApplyChainHandler, readChainResult, createSelectItemHandler, createNudgeHandler } from './server/reaperRequest';
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -42,6 +42,9 @@ async function startServer() {
 
   // Tap-to-point: select/highlight the clip the artist tapped (navigation only).
   app.post('/api/reaper/select-item', createSelectItemHandler({ readConnection: readReaper }));
+
+  // Nudge: slide the tapped clip earlier/later, one undo step in REAPER.
+  app.post('/api/reaper/nudge-item', createNudgeHandler({ readConnection: readReaper }));
 
   // Producer-directed EQ write-back: add a single, clearly named ReaEQ on the
   // drawn track — only on an explicit click, and reversible with undo in REAPER.

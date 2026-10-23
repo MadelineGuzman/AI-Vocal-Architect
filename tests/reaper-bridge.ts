@@ -150,6 +150,11 @@ try {
     const selectRun = spawnSync('lua', ['tests/reaper-bridge-select-item.lua'], { encoding: 'utf8' });
     assert.equal(selectRun.status, 0, selectRun.stderr);
     console.log(selectRun.stdout.trim());
+
+    // …and nudges a tapped clip in time (one undo step).
+    const nudgeRun = spawnSync('lua', ['tests/reaper-bridge-nudge-item.lua'], { encoding: 'utf8' });
+    assert.equal(nudgeRun.status, 0, nudgeRun.stderr);
+    console.log(nudgeRun.stdout.trim());
   }
   console.log('REAPER snapshot, expiry, recovery, size, schema, Unicode and HTTP origin tests passed.');
 } finally { await rm(folder, { recursive: true, force: true }); }

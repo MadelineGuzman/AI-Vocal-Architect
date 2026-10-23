@@ -180,6 +180,38 @@ export function createSelectItemHandler(deps: { readConnection: () => Promise<{ 
   };
 }
 
+// Nudge: slide a clip (by GUID) earlier/later by a small bounded amount, one undo
+// step in REAPER. Fire-and-forget; the moved clip shows up on the next snapshot.
+export function nudgeItemPath() { return path.join(path.dirname(bridgePath()), 'nudge-item.json'); }
+
+export async function writeNudgeRequest(itemId: string, deltaSeconds: number, now = Date.now(), filename = nudgeItemPath()): Promise<void> {
+  if (!isTrackId(itemId)) throw new Error('Invalid item id');
+  if (!finiteIn(deltaSeconds, -10, 10) || deltaSeconds === 0) throw new Error('Invalid nudge amount');
+  const body = JSON.stringify({ version: 1, kind: 'nudge-item', itemId, deltaSeconds, requestedAt: now });
+  await writeFile(filename, body, { encoding: 'utf8' });
+}
+
+export function createNudgeHandler(deps: { readConnection: () => Promise<{ status: string }>; nudgeFile?: string; now?: () => number }) {
+  const nudgeFile = deps.nudgeFile ?? nudgeItemPath();
+  const now = deps.now ?? Date.now;
+  return async (req: Request, res: Response): Promise<void> => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const body = req.body as { itemId?: unknown; deltaSeconds?: unknown } | undefined;
+      const itemId = typeof body?.itemId === 'string' ? body.itemId : '';
+      const delta = Number(body?.deltaSeconds);
+      if (!isTrackId(itemId)) { res.status(400).json({ error: 'Invalid item.' }); return; }
+      if (!finiteIn(delta, -10, 10) || delta === 0) { res.status(400).json({ error: 'Invalid nudge amount.' }); return; }
+      const connection = await deps.readConnection();
+      if (connection.status !== 'connected') { res.status(409).json({ error: 'REAPER is not connected.' }); return; }
+      await writeNudgeRequest(itemId, delta, now(), nudgeFile);
+      res.json({ ok: true });
+    } catch {
+      res.status(500).json({ error: 'The nudge request could not be sent.' });
+    }
+  };
+}
+
 // --- Producer-directed EQ write-back (Gate 2) --------------------------------
 // The one place Cadenzai changes the project, and only on an explicit click. The
 // request carries the target track's GUID and a small set of bell bands

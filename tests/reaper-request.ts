@@ -3,7 +3,7 @@ import express from 'express';
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, createApplyFxHandler, createApplyAutomationHandler, createTransportHandler, createApplyChainHandler, createSelectItemHandler, readPendingRequest, writeAnalyzeRequest, writeEqRequest, readEqResult, writeFxRequest, readFxResult, writeAutomationRequest, readAutomationResult, writeChainRequest, readChainResult, sanitizeChainFx, sanitizeBands, PENDING_REQUEST_MS } from '../server/reaperRequest';
+import { createAnalyzeHandler, createCursorHandler, createApplyEqHandler, createApplyFxHandler, createApplyAutomationHandler, createTransportHandler, createApplyChainHandler, createSelectItemHandler, createNudgeHandler, readPendingRequest, writeAnalyzeRequest, writeEqRequest, readEqResult, writeFxRequest, readFxResult, writeAutomationRequest, readAutomationResult, writeChainRequest, readChainResult, sanitizeChainFx, sanitizeBands, PENDING_REQUEST_MS } from '../server/reaperRequest';
 import { localRequestOnly } from '../server/reaper';
 
 const folder = await mkdtemp(path.join(os.tmpdir(), 'cadenzai-request-test-'));
@@ -346,6 +346,38 @@ try {
     await new Promise<void>((resolve, reject) => sserver.close(error => error ? reject(error) : resolve()));
   }
   console.log('REAPER select-item (tap-to-point) channel: valid/invalid id, disconnected and origin guards passed.');
+
+  // --- POST /api/reaper/nudge-item (slide a clip in time) ---
+  const nudgeFile = path.join(folder, 'nudge-item.json');
+  let nudgeConn = 'connected';
+  const napp = express();
+  let nport = 0;
+  napp.use((req, res, next) => localRequestOnly(nport)(req, res, next));
+  napp.use(express.json());
+  napp.post('/api/reaper/nudge-item', createNudgeHandler({ readConnection: async () => ({ status: nudgeConn }), nudgeFile, now: () => 14000 }));
+  const nserver = napp.listen(0, '127.0.0.1');
+  await new Promise<void>(resolve => nserver.once('listening', resolve));
+  nport = (nserver.address() as { port: number }).port;
+  const nurl = 'http://127.0.0.1:' + nport + '/api/reaper/nudge-item';
+  const nhost = '127.0.0.1:' + nport;
+  const npost = (body: unknown, headers: Record<string, string> = {}) =>
+    fetch(nurl, { method: 'POST', headers: { Host: nhost, Origin: 'http://' + nhost, 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await npost({ itemId: '{ITEM-2}', deltaSeconds: -0.05 })).status, 200, 'a valid nudge is accepted');
+    const written = JSON.parse(await readFile(nudgeFile, 'utf8')) as { kind: string; deltaSeconds: number };
+    assert.equal(written.kind, 'nudge-item');
+    assert.equal(written.deltaSeconds, -0.05);
+    assert.equal((await npost({ itemId: '{ITEM-2}', deltaSeconds: 0 })).status, 400, 'a zero nudge is rejected');
+    assert.equal((await npost({ itemId: '{ITEM-2}', deltaSeconds: 999 })).status, 400, 'an out-of-range nudge is rejected');
+    assert.equal((await npost({ itemId: 'bad id!', deltaSeconds: -0.05 })).status, 400, 'a malformed item id is rejected');
+    nudgeConn = 'disconnected';
+    assert.equal((await npost({ itemId: '{ITEM-2}', deltaSeconds: -0.05 })).status, 409, 'rejected when REAPER is not connected');
+    nudgeConn = 'connected';
+    assert.equal((await npost({ itemId: '{ITEM-2}', deltaSeconds: -0.05 }, { Origin: 'https://untrusted.example' })).status, 403, 'cross-origin rejected');
+  } finally {
+    await new Promise<void>((resolve, reject) => nserver.close(error => error ? reject(error) : resolve()));
+  }
+  console.log('REAPER nudge-item channel: valid/zero/out-of-range/invalid id, disconnected and origin guards passed.');
 } finally {
   await rm(folder, { recursive: true, force: true });
 }

@@ -24,6 +24,7 @@ local transport_file = directory .. '/transport.json'
 local chain_request_file = directory .. '/chain-request.json'
 local chain_result_file = directory .. '/chain-result.json'
 local select_item_file = directory .. '/select-item.json'
+local nudge_item_file = directory .. '/nudge-item.json'
 local json = dofile(script_dir .. 'lib/json.lua')
 local metrics = dofile(script_dir .. 'lib/levels.lua')
 local analyze = dofile(script_dir .. 'lib/analyze.lua')
@@ -41,6 +42,7 @@ local last_auto = nil
 local last_transport = nil
 local last_chain = nil
 local last_select = nil
+local last_nudge = nil
 
 -- Read the single approved request file. Only a correlation id is extracted;
 -- no paths, commands, or executable data are ever read from it.
@@ -419,23 +421,60 @@ local function read_select_item()
   return { itemId = item_id, stamp = stamp }
 end
 
-local function apply_select_item(item_id)
-  local active = reaper.EnumProjects(-1, '')
-  if not active then return end
+local function find_item_by_guid(active, guid)
   local count = reaper.CountMediaItems(active)
   for i = 0, math.min(count, 100000) - 1 do
     local item = reaper.GetMediaItem(active, i)
     if item then
       local _, iguid = reaper.GetSetMediaItemInfo_String(item, 'GUID', '', false)
-      if iguid == item_id then
-        reaper.SelectAllMediaItems(active, false)
-        reaper.SetMediaItemSelected(item, true)
-        reaper.SetEditCurPos(reaper.GetMediaItemInfo_Value(item, 'D_POSITION'), true, false)
-        reaper.UpdateArrange()
-        return
-      end
+      if iguid == guid then return item end
     end
   end
+  return nil
+end
+
+local function apply_select_item(item_id)
+  local active = reaper.EnumProjects(-1, '')
+  if not active then return end
+  local item = find_item_by_guid(active, item_id)
+  if not item then return end
+  reaper.SelectAllMediaItems(active, false)
+  reaper.SetMediaItemSelected(item, true)
+  reaper.SetEditCurPos(reaper.GetMediaItemInfo_Value(item, 'D_POSITION'), true, false)
+  reaper.UpdateArrange()
+end
+
+-- Producer/artist-directed edit: nudge the tapped clip earlier/later by a small
+-- bounded amount, in one undo step. The timeline block shifts on the next
+-- snapshot — that IS the confirmation. Reversible with undo.
+local function read_nudge_request()
+  local file = io.open(nudge_item_file, 'rb')
+  if not file then return nil end
+  local content = file:read(512)
+  file:close()
+  if not content or not content:find('"kind":"nudge-item"', 1, true) then return nil end
+  local item_id = content:match('"itemId":"([%w%-{}]+)"')
+  if not item_id then return nil end
+  local delta = tonumber(content:match('"deltaSeconds":(%-?%d+%.?%d*)'))
+  if not delta or delta < -10 or delta > 10 then return nil end
+  local stamp = content:match('"requestedAt":(%d+)')
+  if stamp and math.abs(os.time() * 1000 - tonumber(stamp)) > 20000 then return nil end
+  return { itemId = item_id, delta = delta, stamp = stamp }
+end
+
+local function apply_nudge(req)
+  local active = reaper.EnumProjects(-1, '')
+  if not active then return end
+  local item = find_item_by_guid(active, req.itemId)
+  if not item then return end
+  reaper.Undo_BeginBlock2(0)
+  pcall(function()
+    local newpos = reaper.GetMediaItemInfo_Value(item, 'D_POSITION') + req.delta
+    if newpos < 0 then newpos = 0 end
+    reaper.SetMediaItemInfo_Value(item, 'D_POSITION', newpos)
+    reaper.UpdateArrange()
+  end)
+  reaper.Undo_EndBlock2(0, 'Cadenzai: nudge clip', -1)
 end
 
 local function quote(value)
@@ -585,6 +624,13 @@ local function tick()
       last_select = sel.stamp
       os.remove(select_item_file)
       pcall(apply_select_item, sel.itemId)
+    end
+    -- Nudge: slide the tapped clip earlier/later, in one undo step.
+    local nudge = read_nudge_request()
+    if nudge and nudge.stamp ~= last_nudge then
+      last_nudge = nudge.stamp
+      os.remove(nudge_item_file)
+      pcall(apply_nudge, nudge)
     end
     -- One analysis at a time; a new request id starts a read-only measurement
     -- of whatever is selected in REAPER at this moment.
